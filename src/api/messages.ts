@@ -91,7 +91,7 @@ export async function sendEncryptedMessage({
 }
 
 /**
- * Sends an encrypted system announcement when a room is created or someone joins.
+ * Sends an encrypted system announcement when a room is created ("New room") or someone joins ("@user joined the room").
  */
 export async function sendSystemJoinMessage(
   roomId: string, 
@@ -102,7 +102,7 @@ export async function sendSystemJoinMessage(
   try {
     const cleanName = (userNickname || 'Anonymous').replace(/^@+/, '');
     const announcement = isCreator 
-      ? `Room created by @${cleanName}` 
+      ? `New room` 
       : `@${cleanName} joined the room`;
 
     await sendEncryptedMessage({

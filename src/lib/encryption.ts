@@ -1,12 +1,17 @@
 import aesjs from 'aes-js';
 
+// Pre-allocated UTF-8 Encoder/Decoder instances for zero-allocation performance
+const textEncoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
+const textDecoder = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8') : null;
+
+// Key cache so we don't re-derive 256-bit keys repeatedly
+const keyCache = new Map<string, Uint8Array>();
+
 // Safe UTF-8 byte conversion supporting full 4-byte emoji planes (avoids aes-js UTF-8 bug with emojis)
 function stringToUtf8Bytes(str: string): Uint8Array {
-  try {
-    if (typeof TextEncoder !== 'undefined') {
-      return new TextEncoder().encode(str);
-    }
-  } catch (e) {}
+  if (textEncoder) {
+    return textEncoder.encode(str);
+  }
   
   const utf8 = unescape(encodeURIComponent(str));
   const arr = new Uint8Array(utf8.length);
@@ -17,11 +22,9 @@ function stringToUtf8Bytes(str: string): Uint8Array {
 }
 
 function utf8BytesToString(bytes: Uint8Array): string {
-  try {
-    if (typeof TextDecoder !== 'undefined') {
-      return new TextDecoder('utf-8').decode(bytes);
-    }
-  } catch (e) {}
+  if (textDecoder) {
+    return textDecoder.decode(bytes);
+  }
 
   let encoded = '';
   for (let i = 0; i < bytes.length; i++) {
@@ -35,12 +38,17 @@ function utf8BytesToString(bytes: Uint8Array): string {
 }
 
 /**
- * Derives a 256-bit (32 byte) key from a room code in a pure JS way.
+ * Derives a 256-bit (32 byte) key from a room code with instant memory caching.
  */
 function getRoomKey(roomCode: string): Uint8Array {
   const cleanCode = (roomCode || '').toLowerCase().trim();
+  const cached = keyCache.get(cleanCode);
+  if (cached) return cached;
+
   const padded = cleanCode.padEnd(32, 'vailchat_secret_padding_character').substring(0, 32);
-  return stringToUtf8Bytes(padded);
+  const key = stringToUtf8Bytes(padded);
+  keyCache.set(cleanCode, key);
+  return key;
 }
 
 /**
@@ -53,7 +61,7 @@ export function encryptMessage(text: string, roomCode: string): string {
     const textBytes = stringToUtf8Bytes(text);
     const key = getRoomKey(roomCode);
     
-    // We use CTR mode (Counter) stream cipher
+    // We use CTR mode (Counter) stream cipher (fastest stream cipher mode)
     const aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5));
     const encryptedBytes = aesCtr.encrypt(textBytes);
     

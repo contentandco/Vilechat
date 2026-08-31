@@ -46,16 +46,23 @@ export const InboxItem: React.FC<InboxItemProps> = ({
           style={[styles.nglInboxMsgTitle, isUnread ? styles.nglMsgTitleUnread : styles.nglMsgTitleRead]}
           numberOfLines={1}
         >
-          {isUnread ? 'New message' : displayName}
+          {displayName}
         </Text>
         <Text style={styles.nglInboxTimeText}>
           {formatTimeLeft(room.expires_at)}
         </Text>
       </View>
 
-      {/* Right Chevron */}
+      {/* Right Side: New Badge & Chevron */}
       {!isInboxEditMode && (
-        <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={Colors.textMuted} />
+        <View style={styles.rightActionContainer}>
+          {isUnread && (
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>New</Text>
+            </View>
+          )}
+          <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={isUnread ? '#FF3355' : Colors.textMuted} />
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -136,5 +143,22 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 13,
     fontWeight: '500',
+  },
+  rightActionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  newBadge: {
+    backgroundColor: '#FF3355',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  newBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
 });

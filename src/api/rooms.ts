@@ -42,23 +42,20 @@ export async function createRoomInDB(
     const { data, error } = await supabase
       .from('rooms')
       .insert([payload])
-      .select()
+      .select('id, code, expires_at, name, name_encrypted, is_paused')
       .single();
 
     if (!error && data) {
       return data;
     }
 
-    // If duplicate code, fetch existing
     if (error && (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique'))) {
-      const existing = await supabase.from('rooms').select().eq('code', code).single();
+      const existing = await supabase.from('rooms').select('id, code, expires_at, name, name_encrypted, is_paused').eq('code', code).single();
       if (existing.data) return existing.data;
     }
 
     if (error) throw error;
   } catch (err: any) {
-    console.warn('Initial room insert failed, attempting fallback with base schema:', err?.message || err);
-
     const basePayload: any = {
       code,
       expires_at: expiresAt,
@@ -71,15 +68,14 @@ export async function createRoomInDB(
     const { data, error } = await supabase
       .from('rooms')
       .insert([basePayload])
-      .select()
+      .select('id, code, expires_at, name, name_encrypted, is_paused')
       .single();
 
     if (error) {
       if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
-        const existing = await supabase.from('rooms').select().eq('code', code).single();
+        const existing = await supabase.from('rooms').select('id, code, expires_at, name, name_encrypted, is_paused').eq('code', code).single();
         if (existing.data) return existing.data;
       }
-      console.error('Fatal createRoomInDB error:', error);
       throw error;
     }
 
@@ -96,12 +92,11 @@ export async function fetchRoomByCode(code: string) {
 
   const { data, error } = await supabase
     .from('rooms')
-    .select('*')
+    .select('id, code, expires_at, name, name_encrypted, is_paused, creator_id, creator_device_id')
     .ilike('code', cleanCode)
     .single();
 
   if (error || !data) {
-    console.error('Fetch room error for code:', cleanCode, error);
     throw new Error('Room not found or has expired. Make sure the code is exact.');
   }
 
@@ -141,9 +136,7 @@ export async function setRoomPausedInDB(roomCode: string, isPaused: boolean) {
       .from('rooms')
       .update({ is_paused: isPaused })
       .ilike('code', roomCode);
-  } catch (e) {
-    console.warn('Failed to update is_paused in DB (column may not exist yet):', e);
-  }
+  } catch (e) {}
 }
 
 /**
@@ -205,7 +198,7 @@ export function subscribeToRoomActions(
 }
 
 /**
- * Queries Supabase to filter out expired or deleted rooms, decodes room names, and calculates unread status.
+ * High-performance parallel verification and sorting of active rooms.
  */
 export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<ActiveRoomDetail[]> {
   if (roomsList.length === 0) {
@@ -214,17 +207,31 @@ export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<
 
   try {
     const codes = roomsList.map((r) => r.code);
-    const { data, error } = await supabase
-      .from('rooms')
-      .select('*')
-      .in('code', codes)
-      .gt('expires_at', new Date().toISOString());
+    
+    // Parallel execute: 1) Active Rooms query & 2) Local last_read fetching
+    const [roomsResult, lastReadList] = await Promise.all([
+      supabase
+        .from('rooms')
+        .select('id, code, expires_at, name, name_encrypted')
+        .in('code', codes)
+        .gt('expires_at', new Date().toISOString()),
+      Promise.all(codes.map((c) => getRoomLastRead(c))),
+    ]);
 
-    if (error) throw error;
+    const activeRooms = roomsResult.data || [];
+    if (activeRooms.length === 0) {
+      return [];
+    }
 
-    const roomIds = (data || []).map((r: any) => r.id);
+    const lastReadMap = new Map<string, number>();
+    codes.forEach((code, idx) => {
+      lastReadMap.set(code, lastReadList[idx]);
+    });
+
+    const roomIds = activeRooms.map((r: any) => r.id);
     const latestMsgMap = new Map<string, number>();
 
+    // Fetch latest message timestamps in a single optimized query
     if (roomIds.length > 0) {
       try {
         const { data: msgs } = await supabase
@@ -244,8 +251,7 @@ export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<
       } catch (e) {}
     }
 
-    const verified: ActiveRoomDetail[] = [];
-    for (const r of (data || [])) {
+    const verified: ActiveRoomDetail[] = activeRooms.map((r: any) => {
       let roomName = r.name || r.code;
       if ((!roomName || roomName === r.code) && r.name_encrypted) {
         try {
@@ -262,21 +268,39 @@ export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<
         }
       }
 
-      const lastRead = await getRoomLastRead(r.code);
+      const lastRead = lastReadMap.get(r.code) || 0;
       const latestMsgTime = latestMsgMap.get(r.id) || 0;
       const hasUnread = latestMsgTime > 0 && latestMsgTime > lastRead;
 
-      verified.push({
+      return {
         code: r.code,
         expires_at: r.expires_at,
         name: roomName || r.code,
         hasUnread,
-      });
-    }
+      };
+    });
+
+    // Fast sort: Unread rooms first, then newest message activity
+    verified.sort((a, b) => {
+      if (a.hasUnread && !b.hasUnread) return -1;
+      if (!a.hasUnread && b.hasUnread) return 1;
+
+      const idA = activeRooms.find((r: any) => r.code === a.code)?.id;
+      const idB = activeRooms.find((r: any) => r.code === b.code)?.id;
+      const timeA = idA ? (latestMsgMap.get(idA) || 0) : 0;
+      const timeB = idB ? (latestMsgMap.get(idB) || 0) : 0;
+
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+
+      const indexA = roomsList.findIndex((r) => r.code === a.code);
+      const indexB = roomsList.findIndex((r) => r.code === b.code);
+      return indexA - indexB;
+    });
 
     return verified;
   } catch (err) {
-    console.error('Failed to verify active rooms from Supabase:', err);
     return roomsList.map((r) => ({
       code: r.code,
       expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),

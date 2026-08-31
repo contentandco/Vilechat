@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, StatusBar, Alert, Clipboard, Platform, ToastAndroid } from 'react-native';
 import { SafeAreaProvider, SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -87,6 +87,8 @@ export default function App() {
   const [verifiedActiveRooms, setVerifiedActiveRooms] = useState<ActiveRoomDetail[]>([]);
   const [checkingHistory, setCheckingHistory] = useState<boolean>(false);
 
+  const debounceTimerRef = useRef<any>(null);
+
   // Custom Hooks
   const { 
     deviceId, 
@@ -172,11 +174,23 @@ export default function App() {
     handleLeaveRoom,
   });
 
-  // Load and sync rooms from storage and Supabase device sessions
+  // Load and sync rooms with instant local seeding
   const loadRecentRooms = async (activeDevId: string = deviceId) => {
     const localRooms = await getLocalRecentRooms();
     if (localRooms.length > 0) {
       setRecentRooms(localRooms);
+      // Instant seed to avoid blank screens
+      setVerifiedActiveRooms((prev) => {
+        if (prev.length === 0) {
+          return localRooms.map((r) => ({
+            code: r.code,
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            name: r.name || r.code,
+            hasUnread: false,
+          }));
+        }
+        return prev;
+      });
     }
 
     if (activeDevId) {
@@ -204,7 +218,9 @@ export default function App() {
       setVerifiedActiveRooms([]);
       return;
     }
-    setCheckingHistory(true);
+    if (verifiedActiveRooms.length === 0) {
+      setCheckingHistory(true);
+    }
     try {
       const active = await verifyActiveRoomsFromDB(roomsList);
       setVerifiedActiveRooms(active);
@@ -222,8 +238,8 @@ export default function App() {
     ].slice(0, 25);
 
     setRecentRooms(updated);
-    verifyRooms(updated);
     saveLocalRecentRooms(updated);
+    verifyRooms(updated);
     syncDeviceSession(deviceId, code, resolvedName);
   };
 
@@ -249,7 +265,7 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Global realtime listener for new inbox messages
+  // Real-time listener for new messages with smart debouncing for peak performance
   useEffect(() => {
     const channel = supabase
       .channel('global_inbox_messages')
@@ -262,7 +278,10 @@ export default function App() {
         },
         () => {
           if (currentScreen !== 'chat-room') {
-            loadRecentRooms(deviceId);
+            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = setTimeout(() => {
+              loadRecentRooms(deviceId);
+            }, 100);
           }
         }
       )
@@ -270,6 +289,7 @@ export default function App() {
 
     return () => {
       supabase.removeChannel(channel);
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
   }, [currentScreen, deviceId]);
 
@@ -339,7 +359,7 @@ export default function App() {
       setRoomCreatorId(room.creator_id || '');
       saveRecentRoom(room.code, room.resolvedName);
 
-      // Mark room read
+      // Mark room read instantly
       setRoomLastRead(cleanCode, Date.now());
       setVerifiedActiveRooms((prev) =>
         prev.map((r) => (r.code === cleanCode ? { ...r, hasUnread: false } : r))
