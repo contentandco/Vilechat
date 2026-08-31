@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   RECENT_ROOMS: 'vailchat_recent_rooms',
   USERNAME: 'vailchat_username',
   AVATAR: 'vailchat_avatar',
+  SEEN_WELCOME: 'vailchat_seen_welcome',
 };
 
 // In-memory fallback in case native storage is unavailable in web / test environments
@@ -154,4 +155,23 @@ export async function clearLocalRecentRooms(): Promise<void> {
   try {
     await safeRemoveItem(STORAGE_KEYS.RECENT_ROOMS);
   } catch (e) {}
+}
+
+/**
+ * Completely wipes all local user data and resets app identity.
+ */
+export async function clearAllUserData(): Promise<void> {
+  try {
+    if (AsyncStorage && typeof AsyncStorage.clear === 'function') {
+      await AsyncStorage.clear();
+    }
+  } catch (e) {}
+
+  memoryStorage.clear();
+
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.clear();
+    } catch (e) {}
+  }
 }

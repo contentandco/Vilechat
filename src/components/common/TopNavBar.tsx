@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Settings01Icon } from '@hugeicons/core-free-icons';
 import { HomeTab } from '../../types';
@@ -10,21 +10,15 @@ interface TopNavBarProps {
   setActiveTab: (tab: HomeTab) => void;
   hasUnread: boolean;
   userNickname: string;
+  onOpenSettings: () => void;
 }
 
 export const TopNavBar: React.FC<TopNavBarProps> = ({
   activeTab,
   setActiveTab,
   hasUnread,
-  userNickname,
+  onOpenSettings,
 }) => {
-  const showSettings = () => {
-    Alert.alert(
-      'Vailchat Settings',
-      `Nickname: ${userNickname}\nEncryption: AES-256 CTR\nRoom Storage: Ephemeral 24h\n\nAll messages wipe clean from database automatically.`
-    );
-  };
-
   return (
     <View style={styles.topNglBar}>
       <View style={styles.topNglTabs}>
@@ -52,7 +46,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
 
       <TouchableOpacity 
         style={styles.settingsBtn}
-        onPress={showSettings}
+        onPress={onOpenSettings}
         activeOpacity={0.7}
       >
         <HugeiconsIcon icon={Settings01Icon} size={22} color={Colors.textPrimary} />

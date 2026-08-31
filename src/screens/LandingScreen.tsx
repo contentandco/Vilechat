@@ -35,6 +35,7 @@ interface LandingScreenProps {
   onDeleteSelectedRooms: () => void;
   onJoinRoom: (code: string) => void;
   onOpenJoinCodeModal: () => void;
+  onOpenSettings: () => void;
 }
 
 export const LandingScreen: React.FC<LandingScreenProps> = ({
@@ -62,6 +63,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   onDeleteSelectedRooms,
   onJoinRoom,
   onOpenJoinCodeModal,
+  onOpenSettings,
 }) => {
   const currentRoomCode = activeRoomCode || whisperRoomCode;
 
@@ -73,6 +75,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
         setActiveTab={setActiveTab}
         hasUnread={verifiedActiveRooms.length > 0}
         userNickname={userNickname}
+        onOpenSettings={onOpenSettings}
       />
 
       {/* Tab 1: Whisper Studio */}

@@ -15,6 +15,7 @@ import {
   saveLocalRecentRooms,
   saveStoredUsername,
   saveStoredAvatar,
+  clearAllUserData,
 } from './src/services/storage';
 import { shareRoomLink } from './src/services/share';
 import {
@@ -42,6 +43,7 @@ import { RoomDashboardScreen } from './src/screens/RoomDashboardScreen';
 import { ChatRoomScreen } from './src/screens/ChatRoomScreen';
 import { JoinCodeModal } from './src/components/common/JoinCodeModal';
 import { RoomCreatedModal } from './src/components/common/RoomCreatedModal';
+import { SettingsModal } from './src/components/common/SettingsModal';
 
 export default function App() {
   // Navigation and Tab state
@@ -65,6 +67,7 @@ export default function App() {
   const [showJoinCodeModal, setShowJoinCodeModal] = useState<boolean>(false);
   const [showCreatedModal, setShowCreatedModal] = useState<boolean>(false);
   const [showRoomInfo, setShowRoomInfo] = useState<boolean>(false);
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [customRoomNameInput, setCustomRoomNameInput] = useState<string>('');
   const [nameSavedFeedback, setNameSavedFeedback] = useState<boolean>(false);
   const [roomCreatedFeedback, setRoomCreatedFeedback] = useState<boolean>(false);
@@ -290,6 +293,35 @@ export default function App() {
     setCurrentScreen('landing');
   };
 
+  // Delete Account Handler
+  const handleDeleteAccount = async () => {
+    try {
+      setLoading(true);
+      if (deviceId && recentRooms.length > 0) {
+        await deleteDeviceSessions(deviceId, recentRooms.map((r) => r.code));
+      }
+      await clearAllUserData();
+      setRecentRooms([]);
+      setVerifiedActiveRooms([]);
+      setSelectedRoomCodes([]);
+      setActiveRoomId('');
+      setActiveRoomCode('');
+      setUserAvatar('');
+      setUserNickname('');
+      setWhisperRoomCode(generateRoomCode());
+      setCurrentScreen('welcome');
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('Account deleted successfully.', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('Account Deleted', 'Your account and local data have been completely wiped.');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to completely wipe account data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateNewWhisperRoom = async () => {
     const newCode = generateRoomCode();
     const shareUrl = `https://vailchat.com/join?code=${newCode}`;
@@ -428,6 +460,7 @@ export default function App() {
             onDeleteSelectedRooms={handleDeleteSelectedRooms}
             onJoinRoom={handleJoinRoom}
             onOpenJoinCodeModal={() => setShowJoinCodeModal(true)}
+            onOpenSettings={() => setShowSettingsModal(true)}
           />
         )}
 
@@ -457,6 +490,24 @@ export default function App() {
             setShowRoomInfo={setShowRoomInfo}
           />
         )}
+
+        {/* Settings Modal */}
+        <SettingsModal
+          visible={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          userNickname={userNickname}
+          userAvatar={userAvatar}
+          deviceId={deviceId}
+          onUpdateNickname={(newName) => {
+            setUserNickname(newName);
+            saveStoredUsername(newName);
+          }}
+          onUpdateAvatar={(newAvatar) => {
+            setUserAvatar(newAvatar);
+            saveStoredAvatar(newAvatar);
+          }}
+          onDeleteAccount={handleDeleteAccount}
+        />
 
         {/* Join by Code Modal */}
         <JoinCodeModal
