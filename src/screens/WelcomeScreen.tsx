@@ -77,11 +77,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) =>
 
       {/* Bottom Action Area */}
       <View style={styles.bottomContainer}>
-        {/* Get Started Button */}
+        {/* Get Started Button (White, No Shadow, Normal Weight) */}
         <TouchableOpacity
           style={styles.getStartedBtn}
           onPress={onGetStarted}
-          activeOpacity={0.9}
+          activeOpacity={0.85}
         >
           <Text style={styles.getStartedBtnText}>Get Started!</Text>
         </TouchableOpacity>
@@ -133,17 +133,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   getStartedBtnText: {
     color: '#000000',
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: -0.2,
+    fontSize: 18,
+    fontWeight: 'normal',
+    letterSpacing: 0.2,
   },
   legalText: {
     color: 'rgba(255, 255, 255, 0.9)',
@@ -151,11 +148,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     paddingHorizontal: 12,
-    fontWeight: '500',
+    fontWeight: 'normal',
   },
   legalLink: {
     textDecorationLine: 'underline',
-    fontWeight: '600',
+    fontWeight: 'normal',
     color: '#FFFFFF',
   },
 });

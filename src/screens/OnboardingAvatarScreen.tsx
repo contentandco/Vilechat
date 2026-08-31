@@ -70,7 +70,7 @@ export const OnboardingAvatarScreen: React.FC<OnboardingAvatarScreenProps> = ({
           <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.skipBtn} onPress={onSkip} activeOpacity={0.7}>
-          <Text style={styles.skipText}>skip</Text>
+          <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       </View>
 
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   skipText: {
     color: '#8E9BAE',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: 'normal',
   },
   centerContent: {
     alignItems: 'center',
@@ -208,11 +208,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 3,
     borderColor: Colors.background,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   bottomContainer: {
     paddingBottom: 12,
@@ -224,16 +221,13 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   actionBtnText: {
     color: '#000000',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: 'normal',
     letterSpacing: -0.2,
   },
 });

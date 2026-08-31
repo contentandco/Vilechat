@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     width: '100%',
     color: Colors.textPrimary,
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: 'normal',
     textAlign: 'center',
     paddingVertical: 4,
   },
@@ -144,11 +144,8 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   continueBtnDisabled: {
     backgroundColor: '#354359',
@@ -157,7 +154,7 @@ const styles = StyleSheet.create({
   continueBtnText: {
     color: '#000000',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: 'normal',
     letterSpacing: -0.2,
   },
   continueBtnTextDisabled: {
