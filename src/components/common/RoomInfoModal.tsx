@@ -155,8 +155,12 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
     );
   };
 
+  // Filter out system messages so "System" is never listed as a human participant
   const otherParticipants = messages
-    .filter((m, i, self) => self.findIndex((t) => t.sender_id === m.sender_id) === i && m.sender_id !== userId);
+    .filter((m) => !m.is_system && m.sender_id !== '__system__' && m.sender_name !== 'System' && m.sender_id !== userId)
+    .filter((m, i, self) => self.findIndex((t) => t.sender_id === m.sender_id) === i);
+
+  const totalHumanParticipants = otherParticipants.length + 1;
 
   return (
     <Modal
@@ -323,7 +327,7 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
             <View style={styles.modalCard}>
               <View style={styles.modalCardHeader}>
                 <HugeiconsIcon icon={UserGroupIcon} size={18} color={Colors.primary} />
-                <Text style={styles.modalCardTitle}>Active Participants ({participantsCount})</Text>
+                <Text style={styles.modalCardTitle}>Active Participants ({totalHumanParticipants})</Text>
               </View>
               <View style={styles.participantsList}>
                 {/* You */}

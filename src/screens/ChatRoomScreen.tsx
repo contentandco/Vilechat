@@ -83,11 +83,13 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     fetchRoomMessages(roomId, roomCode)
       .then(async (loadedMessages) => {
         setMessages(loadedMessages);
-        const participants = new Set(
-          loadedMessages.filter((m) => !m.is_system).map((m) => m.sender_id)
+        const humanParticipants = new Set(
+          loadedMessages
+            .filter((m) => !m.is_system && m.sender_id !== '__system__' && m.sender_name !== 'System')
+            .map((m) => m.sender_id)
         );
-        participants.add(userId);
-        setParticipantsCount(participants.size);
+        humanParticipants.add(userId);
+        setParticipantsCount(humanParticipants.size);
         scrollToBottom(100);
 
         // Check if user has already announced in this room
@@ -105,8 +107,16 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         if (prev.some((m) => m.id === newMsg.id)) {
           return prev;
         }
+        const nextList = [...prev, newMsg];
+        const humanParticipants = new Set(
+          nextList
+            .filter((m) => !m.is_system && m.sender_id !== '__system__' && m.sender_name !== 'System')
+            .map((m) => m.sender_id)
+        );
+        humanParticipants.add(userId);
+        setParticipantsCount(humanParticipants.size);
         scrollToBottom(100);
-        return [...prev, newMsg];
+        return nextList;
       });
     });
 

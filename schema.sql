@@ -49,15 +49,30 @@ create table if not exists device_sessions (
     unique (device_id, room_code)
 );
 
+-- Onboarding Responses Table (Tracks anonymous vibe selections)
+create table if not exists onboarding_responses (
+    id uuid primary key default gen_random_uuid(),
+    device_id text not null,
+    vibe_id text not null,
+    vibe_title text not null,
+    username text,
+    platform text default 'mobile',
+    created_at timestamptz default now(),
+    updated_at timestamptz default now(),
+    unique (device_id)
+);
+
 -- Indexing for speed
 create index if not exists idx_rooms_code on rooms(code);
 create index if not exists idx_messages_room_id on messages(room_id);
 create index if not exists idx_rooms_expires_at on rooms(expires_at);
 create index if not exists idx_device_sessions_device_id on device_sessions(device_id);
 create index if not exists idx_device_sessions_room_code on device_sessions(room_code);
+create index if not exists idx_onboarding_device_id on onboarding_responses(device_id);
+create index if not exists idx_onboarding_vibe_id on onboarding_responses(vibe_id);
+create index if not exists idx_onboarding_created_at on onboarding_responses(created_at);
 
 -- Self-cleaning function: Deletes expired rooms and their messages.
--- This runs automatically whenever a new room is created so you don't need a paid cron job.
 create or replace function cleanup_expired_rooms()
 returns trigger as $$
 begin
@@ -75,10 +90,10 @@ create trigger trigger_cleanup_rooms
     execute function cleanup_expired_rooms();
 
 -- Row Level Security (RLS) configuration
--- Since this is an anonymous app, we allow public read/write to these tables.
 alter table rooms enable row level security;
 alter table messages enable row level security;
 alter table device_sessions enable row level security;
+alter table onboarding_responses enable row level security;
 
 -- Policies for Rooms
 create policy "Allow anonymous creation of rooms" on rooms
@@ -112,4 +127,8 @@ create policy "Allow anonymous reading of messages of active rooms" on messages
 
 -- Policies for Device Sessions
 create policy "Allow anonymous device session management" on device_sessions
+    for all using (true) with check (true);
+
+-- Policies for Onboarding Responses
+create policy "Allow anonymous upsert onboarding" on onboarding_responses
     for all using (true) with check (true);

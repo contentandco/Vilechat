@@ -31,6 +31,7 @@ import {
   renameRoomByCodeInDB,
   deleteRoomPermanently,
 } from './src/api/rooms';
+import { recordOnboardingVibe } from './src/api/onboarding';
 
 // Custom Hooks
 import { useDeviceIdentity } from './src/hooks/useDeviceIdentity';
@@ -59,6 +60,7 @@ export default function App() {
   const [whisperRoomCode, setWhisperRoomCode] = useState<string>(() => generateRoomCode());
   const [promptIndex, setPromptIndex] = useState<number>(0);
   const [themeIndex] = useState<number>(0);
+  const [chosenVibe, setChosenVibe] = useState<VibeOption | null>(null);
 
   // Active Room state
   const [roomCodeInput, setRoomCodeInput] = useState<string>('');
@@ -359,13 +361,30 @@ export default function App() {
   };
 
   const handleVibeSelected = (vibe: VibeOption) => {
+    setChosenVibe(vibe);
     setPromptIndex(vibe.promptIndex);
+    if (deviceId) {
+      recordOnboardingVibe({
+        deviceId,
+        vibeId: vibe.id,
+        vibeTitle: vibe.title,
+        username: userNickname,
+      });
+    }
     setCurrentScreen('onboarding-username');
   };
 
   const handleUsernameSelected = (username: string) => {
     setUserNickname(username);
     saveStoredUsername(username);
+    if (deviceId) {
+      recordOnboardingVibe({
+        deviceId,
+        vibeId: chosenVibe?.id || 'confessions',
+        vibeTitle: chosenVibe?.title || 'Secret Confessions',
+        username,
+      });
+    }
     setCurrentScreen('onboarding-avatar');
   };
 
