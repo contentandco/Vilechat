@@ -29,8 +29,9 @@ import {
 } from '@hugeicons/core-free-icons';
 import { Colors } from '../../constants/theme';
 import { ActiveRoomDetail } from '../../types';
-import { getPausedRoomCodes, savePausedRoomCodes } from '../../services/storage';
+import { getPausedRoomCodes, savePausedRoomCodes, getLocalRecentRooms } from '../../services/storage';
 import { setRoomPausedInDB } from '../../api/rooms';
+import { useAppStore } from '../../store/useAppStore';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -58,14 +59,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newMessagesEnabled, setNewMessagesEnabled] = useState<boolean>(true);
   const [teamVailchatEnabled, setTeamVailchatEnabled] = useState<boolean>(true);
 
+  const storeWhisperCode = useAppStore((s) => s.whisperRoomCode);
+  const effectiveWhisperCode = currentWhisperCode || storeWhisperCode;
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [showPauseLinkModal, setShowPauseLinkModal] = useState<boolean>(false);
   const [pausedCodes, setPausedCodes] = useState<string[]>([]);
+  const [localRooms, setLocalRooms] = useState<{ code: string; name?: string }[]>([]);
 
-  // Load paused codes and notification settings on mount
+  // Load paused codes, local rooms, and notification settings on mount
   useEffect(() => {
-    if (visible) {
+    if (visible || showPauseLinkModal) {
       getPausedRoomCodes().then((codes) => setPausedCodes(codes));
+      getLocalRecentRooms().then((rooms) => {
+        setLocalRooms(rooms.map((r) => ({ code: r.code, name: r.name })));
+      });
 
       AsyncStorage.multiGet([
         NOTIF_STORAGE_KEYS.REMINDERS,
@@ -82,7 +90,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         });
       }).catch(() => {});
     }
-  }, [visible]);
+  }, [visible, showPauseLinkModal]);
 
   const handleToggleReminders = (value: boolean) => {
     setRemindersEnabled(value);
@@ -154,11 +162,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onDeleteAccount();
   };
 
-  const allManageableCodes = Array.from(
-    new Set([currentWhisperCode, ...activeRooms.map((r) => r.code)].filter(Boolean))
-  );
+  // Construct comprehensive list of all manageable links
+  const roomMap = new Map<string, string>();
+  if (effectiveWhisperCode) {
+    roomMap.set(effectiveWhisperCode, 'Active Whisper Link');
+  }
+  for (const r of activeRooms) {
+    if (r?.code) {
+      roomMap.set(r.code, r.name || `Room: ${r.code}`);
+    }
+  }
+  for (const r of localRooms) {
+    if (r?.code && !roomMap.has(r.code)) {
+      roomMap.set(r.code, r.name || `Room: ${r.code}`);
+    }
+  }
 
-  const isCurrentWhisperPaused = pausedCodes.includes(currentWhisperCode);
+  const manageableList = Array.from(roomMap.entries()).map(([code, name]) => ({
+    code,
+    displayName: code === effectiveWhisperCode && (!name || name === code) ? 'Active Whisper Link' : name,
+  }));
+
+  const isCurrentWhisperPaused = pausedCodes.includes(effectiveWhisperCode);
 
   return (
     <Modal
@@ -442,11 +467,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 Temporarily pause links to stop receiving new messages. Anyone opening a paused link will see that it is on hold.
               </Text>
 
-              <ScrollView style={styles.pauseList} showsVerticalScrollIndicator={false}>
-                {allManageableCodes.map((code) => {
+              <ScrollView 
+                style={styles.pauseList} 
+                contentContainerStyle={styles.pauseListContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {manageableList.map(({ code, displayName }) => {
                   const isPaused = pausedCodes.includes(code);
-                  const roomDetail = activeRooms.find((r) => r.code === code);
-                  const displayName = roomDetail?.name || (code === currentWhisperCode ? 'Active Whisper Link' : `Room: ${code}`);
 
                   return (
                     <View key={code} style={styles.pauseCard}>
@@ -614,7 +641,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-    maxHeight: '80%',
+    height: '75%',
+    maxHeight: '85%',
   },
   pauseHeader: {
     flexDirection: 'row',
@@ -648,6 +676,9 @@ const styles = StyleSheet.create({
   },
   pauseList: {
     flex: 1,
+  },
+  pauseListContent: {
+    paddingBottom: 30,
   },
   pauseCard: {
     flexDirection: 'row',
