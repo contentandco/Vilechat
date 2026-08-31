@@ -311,9 +311,8 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
       setLoading(true);
       await renameRoomMutation({ roomId, roomCode, newName });
       setRoomName(newName);
-      Alert.alert('Success', 'Room renamed successfully!');
     } catch (e) {
-      Alert.alert('Error', 'Failed to update room name.');
+      console.warn('Failed to update room name:', e);
     } finally {
       setLoading(false);
     }

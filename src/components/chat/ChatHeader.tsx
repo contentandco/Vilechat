@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { ArrowLeft01Icon, ArrowRight01Icon, LockKeyIcon } from '@hugeicons/core-free-icons';
+import { ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import { Colors } from '../../constants/theme';
 
 interface ChatHeaderProps {
@@ -30,10 +30,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         onPress={onOpenRoomInfo}
         activeOpacity={0.8}
       >
-        {/* Padlock Anonymous Group Avatar Icon */}
+        {/* Mail Box Avatar */}
         <View style={styles.headerAvatarContainer}>
           <View style={styles.headerAvatar}>
-            <HugeiconsIcon icon={LockKeyIcon} size={14} color={Colors.primary} />
+            <Text style={styles.headerAvatarIcon}>💌</Text>
           </View>
         </View>
         
@@ -65,8 +65,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
     backgroundColor: Colors.background,
   },
   chatHeaderLeft: {
@@ -82,14 +80,15 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   headerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: Colors.cardBackground,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerAvatarIcon: {
+    fontSize: 18,
   },
   headerTextContainer: {
     flex: 1,
@@ -114,7 +113,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#22C55E',
     marginRight: 5,
   },
   headerStatusText: {

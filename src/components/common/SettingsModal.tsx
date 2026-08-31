@@ -482,11 +482,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           {displayName}
                         </Text>
                         <Text style={styles.pauseCardCode}>https://vailchat.com/join?code={code}</Text>
-                        <View style={[styles.pauseStatusBadge, isPaused ? styles.badgePaused : styles.badgeActive]}>
-                          <Text style={[styles.pauseStatusText, isPaused ? styles.textPaused : styles.textActive]}>
-                            {isPaused ? 'PAUSED' : 'ACTIVE'}
-                          </Text>
-                        </View>
                       </View>
 
                       <Switch

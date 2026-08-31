@@ -35,7 +35,7 @@ export const InboxItem: React.FC<InboxItemProps> = ({
         </View>
       )}
 
-      {/* Left Envelope Avatar */}
+      {/* Left Mail Box Avatar */}
       <View style={[styles.inboxAvatar, isUnread ? styles.avatarUnread : styles.avatarDark]}>
         <Text style={styles.envelopeIcon}>💌</Text>
       </View>
@@ -102,12 +102,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   inboxAvatar: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   avatarUnread: {
     backgroundColor: 'rgba(255, 51, 85, 0.2)',
