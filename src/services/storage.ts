@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   AVATAR: 'vailchat_avatar',
   SEEN_WELCOME: 'vailchat_seen_welcome',
   PAUSED_ROOMS: 'vailchat_paused_rooms',
+  ROOM_LAST_READ: 'vailchat_room_last_read_',
 };
 
 // In-memory fallback in case native storage is unavailable in web / test environments
@@ -177,6 +178,27 @@ export async function getPausedRoomCodes(): Promise<string[]> {
 export async function savePausedRoomCodes(codes: string[]): Promise<void> {
   try {
     await safeSetItem(STORAGE_KEYS.PAUSED_ROOMS, JSON.stringify(codes));
+  } catch (e) {}
+}
+
+/**
+ * Gets timestamp when room was last opened / read by this user.
+ */
+export async function getRoomLastRead(code: string): Promise<number> {
+  try {
+    const val = await safeGetItem(`${STORAGE_KEYS.ROOM_LAST_READ}${code.toLowerCase()}`);
+    return val ? parseInt(val, 10) : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+/**
+ * Marks room as read at the current timestamp.
+ */
+export async function setRoomLastRead(code: string, timestamp: number = Date.now()): Promise<void> {
+  try {
+    await safeSetItem(`${STORAGE_KEYS.ROOM_LAST_READ}${code.toLowerCase()}`, timestamp.toString());
   } catch (e) {}
 }
 

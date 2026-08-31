@@ -14,6 +14,7 @@ export interface RecentRoom {
   code: string;
   timestamp: number;
   name?: string;
+  lastRead?: number;
 }
 
 export interface ActiveRoomDetail {
@@ -31,6 +32,7 @@ export interface MessageItem {
   is_image: boolean;
   is_voice: boolean;
   is_sticker: boolean;
+  is_system?: boolean;
   created_at: string;
 }
 

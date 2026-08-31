@@ -36,7 +36,7 @@ export const InboxItem: React.FC<InboxItemProps> = ({
       )}
 
       {/* Left Envelope Avatar */}
-      <View style={[styles.nglInboxAvatar, isUnread ? styles.nglAvatarGrad : styles.nglAvatarDark]}>
+      <View style={[styles.nglInboxAvatar, isUnread ? styles.nglAvatarUnread : styles.nglAvatarDark]}>
         <Text style={styles.nglEnvelopeIcon}>💌</Text>
       </View>
 
@@ -46,7 +46,7 @@ export const InboxItem: React.FC<InboxItemProps> = ({
           style={[styles.nglInboxMsgTitle, isUnread ? styles.nglMsgTitleUnread : styles.nglMsgTitleRead]}
           numberOfLines={1}
         >
-          {isUnread ? 'New Message!' : displayName}
+          {isUnread ? 'New message' : displayName}
         </Text>
         <Text style={styles.nglInboxTimeText}>
           {formatTimeLeft(room.expires_at)}
@@ -102,10 +102,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 16,
   },
-  nglAvatarGrad: {
-    backgroundColor: Colors.unread,
+  nglAvatarUnread: {
+    backgroundColor: 'rgba(255, 51, 85, 0.2)',
     borderWidth: 2,
-    borderColor: Colors.unreadBorder,
+    borderColor: '#FF3355',
   },
   nglAvatarDark: {
     backgroundColor: Colors.surfaceMuted,
@@ -126,7 +126,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   nglMsgTitleUnread: {
-    color: Colors.unread,
+    color: '#FF3355',
+    fontWeight: '800',
   },
   nglMsgTitleRead: {
     color: Colors.textPrimary,

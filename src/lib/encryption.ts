@@ -1,12 +1,46 @@
 import aesjs from 'aes-js';
 
+// Safe UTF-8 byte conversion supporting full 4-byte emoji planes (avoids aes-js UTF-8 bug with emojis)
+function stringToUtf8Bytes(str: string): Uint8Array {
+  try {
+    if (typeof TextEncoder !== 'undefined') {
+      return new TextEncoder().encode(str);
+    }
+  } catch (e) {}
+  
+  const utf8 = unescape(encodeURIComponent(str));
+  const arr = new Uint8Array(utf8.length);
+  for (let i = 0; i < utf8.length; i++) {
+    arr[i] = utf8.charCodeAt(i);
+  }
+  return arr;
+}
+
+function utf8BytesToString(bytes: Uint8Array): string {
+  try {
+    if (typeof TextDecoder !== 'undefined') {
+      return new TextDecoder('utf-8').decode(bytes);
+    }
+  } catch (e) {}
+
+  let encoded = '';
+  for (let i = 0; i < bytes.length; i++) {
+    encoded += String.fromCharCode(bytes[i]);
+  }
+  try {
+    return decodeURIComponent(escape(encoded));
+  } catch (e) {
+    return encoded;
+  }
+}
+
 /**
  * Derives a 256-bit (32 byte) key from a room code in a pure JS way.
  */
 function getRoomKey(roomCode: string): Uint8Array {
-  // Pad or truncate roomCode to exactly 32 characters
-  const padded = roomCode.padEnd(32, 'vailchat_secret_padding_character').substring(0, 32);
-  return aesjs.utils.utf8.toBytes(padded);
+  const cleanCode = (roomCode || '').toLowerCase().trim();
+  const padded = cleanCode.padEnd(32, 'vailchat_secret_padding_character').substring(0, 32);
+  return stringToUtf8Bytes(padded);
 }
 
 /**
@@ -16,11 +50,10 @@ function getRoomKey(roomCode: string): Uint8Array {
  */
 export function encryptMessage(text: string, roomCode: string): string {
   try {
-    const textBytes = aesjs.utils.utf8.toBytes(text);
+    const textBytes = stringToUtf8Bytes(text);
     const key = getRoomKey(roomCode);
     
-    // We use CTR mode (Counter) which is a stream cipher and doesn't require padding.
-    // We use a fixed counter starting at 5 (safe for our ephemeral ephemeral messages).
+    // We use CTR mode (Counter) stream cipher
     const aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5));
     const encryptedBytes = aesCtr.encrypt(textBytes);
     
@@ -40,8 +73,8 @@ export function encryptMessage(text: string, roomCode: string): string {
 export function decryptMessage(hexCiphertext: string, roomCode: string): string {
   try {
     // If it's not a hex string (e.g., legacy plaintext messages), return it directly
-    if (!/^[0-9a-fA-F]+$/.test(hexCiphertext)) {
-      return hexCiphertext;
+    if (!hexCiphertext || !/^[0-9a-fA-F]+$/.test(hexCiphertext)) {
+      return hexCiphertext || '';
     }
 
     const encryptedBytes = aesjs.utils.hex.toBytes(hexCiphertext);
@@ -50,7 +83,7 @@ export function decryptMessage(hexCiphertext: string, roomCode: string): string 
     const aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5));
     const decryptedBytes = aesCtr.decrypt(encryptedBytes);
     
-    return aesjs.utils.utf8.fromBytes(decryptedBytes);
+    return utf8BytesToString(decryptedBytes);
   } catch (error) {
     console.error('Decryption failed:', error);
     return '[Decryption Failed]';

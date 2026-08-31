@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 import { Screen, HomeTab, RecentRoom, ActiveRoomDetail } from './src/types';
 import { Colors } from './src/constants/theme';
 import { generateRoomCode } from './src/lib/encryption';
+import { supabase } from './src/lib/supabase';
 
 // Services and APIs
 import {
@@ -17,6 +18,7 @@ import {
   saveStoredAvatar,
   clearAllUserData,
   getPausedRoomCodes,
+  setRoomLastRead,
 } from './src/services/storage';
 import { shareRoomLink } from './src/services/share';
 import {
@@ -110,6 +112,7 @@ export default function App() {
     setRoomCreatorDeviceId('');
     setRoomCreatorId('');
     setCurrentScreen('landing');
+    loadRecentRooms(deviceId);
   };
 
   // Explicitly Leave & Remove room from inbox and device sessions
@@ -244,6 +247,30 @@ export default function App() {
     }
   }, [activeTab]);
 
+  // Global realtime listener for new inbox messages
+  useEffect(() => {
+    const channel = supabase
+      .channel('global_inbox_messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          if (currentScreen !== 'chat-room') {
+            loadRecentRooms(deviceId);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentScreen, deviceId]);
+
   // Deep Linking Navigation
   useEffect(() => {
     const handleDeepLink = (event: { url: string }) => {
@@ -309,6 +336,13 @@ export default function App() {
       setRoomCreatorDeviceId(room.creator_device_id || '');
       setRoomCreatorId(room.creator_id || '');
       saveRecentRoom(room.code, room.resolvedName);
+
+      // Mark room read
+      setRoomLastRead(cleanCode, Date.now());
+      setVerifiedActiveRooms((prev) =>
+        prev.map((r) => (r.code === cleanCode ? { ...r, hasUnread: false } : r))
+      );
+
       setShowJoinCodeModal(false);
       setRoomCodeInput('');
       setCurrentScreen('chat-room');

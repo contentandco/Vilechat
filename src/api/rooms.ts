@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { encryptMessage, decryptMessage } from '../lib/encryption';
 import { RecentRoom, ActiveRoomDetail } from '../types';
+import { getRoomLastRead } from '../services/storage';
 
 /**
  * Checks if Supabase client is properly configured.
@@ -56,7 +57,6 @@ export async function createRoomInDB(
 
     if (error) throw error;
   } catch (err: any) {
-    // If schema lacks new columns (creator_device_id / is_paused), fallback to core columns
     console.warn('Initial room insert failed, attempting fallback with base schema:', err?.message || err);
 
     const basePayload: any = {
@@ -205,7 +205,7 @@ export function subscribeToRoomActions(
 }
 
 /**
- * Queries Supabase to filter out expired or deleted rooms and decodes room names.
+ * Queries Supabase to filter out expired or deleted rooms, decodes room names, and calculates unread status.
  */
 export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<ActiveRoomDetail[]> {
   if (roomsList.length === 0) {
@@ -222,7 +222,30 @@ export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<
 
     if (error) throw error;
 
-    return (data || []).map((r: any) => {
+    const roomIds = (data || []).map((r: any) => r.id);
+    const latestMsgMap = new Map<string, number>();
+
+    if (roomIds.length > 0) {
+      try {
+        const { data: msgs } = await supabase
+          .from('messages')
+          .select('room_id, created_at')
+          .in('room_id', roomIds)
+          .order('created_at', { ascending: false });
+
+        if (msgs) {
+          for (const m of msgs) {
+            const time = new Date(m.created_at).getTime();
+            if (!latestMsgMap.has(m.room_id) || time > (latestMsgMap.get(m.room_id) || 0)) {
+              latestMsgMap.set(m.room_id, time);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    const verified: ActiveRoomDetail[] = [];
+    for (const r of (data || [])) {
       let roomName = r.name || r.code;
       if ((!roomName || roomName === r.code) && r.name_encrypted) {
         try {
@@ -238,13 +261,20 @@ export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<
           roomName = localMatch.name;
         }
       }
-      return {
+
+      const lastRead = await getRoomLastRead(r.code);
+      const latestMsgTime = latestMsgMap.get(r.id) || 0;
+      const hasUnread = latestMsgTime > 0 && latestMsgTime > lastRead;
+
+      verified.push({
         code: r.code,
         expires_at: r.expires_at,
         name: roomName || r.code,
-        hasUnread: false,
-      };
-    });
+        hasUnread,
+      });
+    }
+
+    return verified;
   } catch (err) {
     console.error('Failed to verify active rooms from Supabase:', err);
     return roomsList.map((r) => ({

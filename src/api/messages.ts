@@ -25,16 +25,20 @@ export async function fetchRoomMessages(roomId: string, roomCode: string): Promi
 
   if (error) throw error;
 
-  return (data || []).map((msg: any) => ({
-    id: msg.id,
-    sender_id: msg.sender_id,
-    sender_name: msg.sender_name,
-    content: decryptMessage(msg.content_encrypted, roomCode),
-    is_image: msg.is_image,
-    is_voice: msg.is_voice,
-    is_sticker: msg.is_sticker,
-    created_at: msg.created_at,
-  }));
+  return (data || []).map((msg: any) => {
+    const isSystem = msg.sender_id === '__system__' || msg.sender_name === 'System';
+    return {
+      id: msg.id,
+      sender_id: msg.sender_id,
+      sender_name: msg.sender_name,
+      content: decryptMessage(msg.content_encrypted, roomCode),
+      is_image: Boolean(msg.is_image),
+      is_voice: Boolean(msg.is_voice),
+      is_sticker: Boolean(msg.is_sticker),
+      is_system: isSystem,
+      created_at: msg.created_at,
+    };
+  });
 }
 
 export interface SendMessageParams {
@@ -47,6 +51,7 @@ export interface SendMessageParams {
   isImage?: boolean;
   isVoice?: boolean;
   isSticker?: boolean;
+  isSystem?: boolean;
 }
 
 /**
@@ -62,6 +67,7 @@ export async function sendEncryptedMessage({
   isImage = false,
   isVoice = false,
   isSticker = false,
+  isSystem = false,
 }: SendMessageParams) {
   const encryptedContent = encryptMessage(rawContent, roomCode);
 
@@ -71,8 +77,8 @@ export async function sendEncryptedMessage({
       {
         id,
         room_id: roomId,
-        sender_id: senderId,
-        sender_name: senderName,
+        sender_id: isSystem ? '__system__' : senderId,
+        sender_name: isSystem ? 'System' : senderName,
         content_encrypted: encryptedContent,
         is_image: isImage,
         is_voice: isVoice,
@@ -82,6 +88,34 @@ export async function sendEncryptedMessage({
 
   if (error) throw error;
   return id;
+}
+
+/**
+ * Sends an encrypted system announcement when a room is created or someone joins.
+ */
+export async function sendSystemJoinMessage(
+  roomId: string, 
+  roomCode: string, 
+  userNickname: string,
+  isCreator: boolean = false
+) {
+  try {
+    const cleanName = (userNickname || 'Anonymous').replace(/^@+/, '');
+    const announcement = isCreator 
+      ? `Room created by @${cleanName}` 
+      : `@${cleanName} joined the room`;
+
+    await sendEncryptedMessage({
+      roomId,
+      roomCode,
+      senderId: '__system__',
+      senderName: 'System',
+      rawContent: announcement,
+      isSystem: true,
+    });
+  } catch (e) {
+    console.warn('Failed to broadcast system announcement:', e);
+  }
 }
 
 /**
@@ -105,15 +139,17 @@ export function subscribeToRoomMessages(
       (payload) => {
         const newMsg = payload.new;
         const decryptedContent = decryptMessage(newMsg.content_encrypted, roomCode);
+        const isSystem = newMsg.sender_id === '__system__' || newMsg.sender_name === 'System';
         
         const formattedMsg: MessageItem = {
           id: newMsg.id,
           sender_id: newMsg.sender_id,
           sender_name: newMsg.sender_name,
           content: decryptedContent,
-          is_image: newMsg.is_image,
-          is_voice: newMsg.is_voice,
-          is_sticker: newMsg.is_sticker,
+          is_image: Boolean(newMsg.is_image),
+          is_voice: Boolean(newMsg.is_voice),
+          is_sticker: Boolean(newMsg.is_sticker),
+          is_system: isSystem,
           created_at: newMsg.created_at,
         };
 

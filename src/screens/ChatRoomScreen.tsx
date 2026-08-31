@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MessageItem } from '../types';
 import { Colors } from '../constants/theme';
 import { ChatHeader } from '../components/chat/ChatHeader';
@@ -15,6 +16,7 @@ import {
   sendEncryptedMessage,
   subscribeToRoomMessages,
   generateClientUUID,
+  sendSystemJoinMessage,
 } from '../api/messages';
 import {
   subscribeToRoomMeta,
@@ -74,17 +76,27 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     }, delay);
   };
 
-  // Load initial messages and subscribe to real-time events
+  // Load initial messages, send join announcement (once per room session), and subscribe to real-time events
   useEffect(() => {
     if (!roomId) return;
 
     fetchRoomMessages(roomId, roomCode)
-      .then((loadedMessages) => {
+      .then(async (loadedMessages) => {
         setMessages(loadedMessages);
-        const participants = new Set(loadedMessages.map((m) => m.sender_id));
+        const participants = new Set(
+          loadedMessages.filter((m) => !m.is_system).map((m) => m.sender_id)
+        );
         participants.add(userId);
         setParticipantsCount(participants.size);
         scrollToBottom(100);
+
+        // Check if user has already announced in this room
+        const announceKey = `vailchat_announcement_sent_${roomId}_${userId}`;
+        const alreadyAnnounced = await AsyncStorage.getItem(announceKey);
+        if (!alreadyAnnounced) {
+          await AsyncStorage.setItem(announceKey, 'true');
+          await sendSystemJoinMessage(roomId, roomCode, userNickname, isCreator);
+        }
       })
       .catch((err) => console.error('Failed to load messages:', err));
 
@@ -323,7 +335,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
       style={styles.chatWrapper}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      {/* Instagram-Inspired Header */}
+      {/* Header */}
       <ChatHeader
         roomName={roomName}
         timeRemaining={timeRemaining}

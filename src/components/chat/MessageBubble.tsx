@@ -30,6 +30,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
+  // Render centered sleek pill for system announcements (e.g. "Neon Fox joined the room 👋")
+  if (item.is_system) {
+    return (
+      <View style={styles.systemMessageRow}>
+        <View style={styles.systemPill}>
+          <Text style={styles.systemText}>{item.content}</Text>
+        </View>
+      </View>
+    );
+  }
+
   const bubbleStyle = isMe 
     ? {
         borderTopLeftRadius: 18,
@@ -98,6 +109,26 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 };
 
 const styles = StyleSheet.create({
+  systemMessageRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 10,
+    width: '100%',
+  },
+  systemPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  systemText: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   messageRow: {
     marginBottom: 16,
     maxWidth: '82%',
