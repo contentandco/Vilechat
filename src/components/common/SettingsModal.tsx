@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,265 +6,502 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
-  Image,
-  TextInput,
+  Switch,
   Alert,
   Platform,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
-  LockKeyIcon,
-  UserIcon,
-  Delete02Icon,
-  PencilEdit02Icon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  Notification01Icon,
+  HandIcon,
+  HelpCircleIcon,
   Shield01Icon,
-  Camera01Icon,
+  File01Icon,
+  LockKeyIcon,
+  CodeCircleIcon,
+  Delete02Icon,
 } from '@hugeicons/core-free-icons';
 import { Colors } from '../../constants/theme';
+import { ActiveRoomDetail } from '../../types';
+import { getPausedRoomCodes, savePausedRoomCodes } from '../../services/storage';
+import { setRoomPausedInDB } from '../../api/rooms';
 
 interface SettingsModalProps {
   visible: boolean;
   onClose: () => void;
-  userNickname: string;
-  userAvatar: string;
-  deviceId: string;
-  onUpdateNickname: (name: string) => void;
-  onUpdateAvatar: (avatarUri: string) => void;
   onDeleteAccount: () => void;
+  activeRooms?: ActiveRoomDetail[];
+  currentWhisperCode?: string;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   visible,
   onClose,
-  userNickname,
-  userAvatar,
-  deviceId,
-  onUpdateNickname,
-  onUpdateAvatar,
   onDeleteAccount,
+  activeRooms = [],
+  currentWhisperCode = '',
 }) => {
-  const [isEditingUsername, setIsEditingUsername] = useState<boolean>(false);
-  const [usernameText, setUsernameText] = useState<string>(userNickname);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [showPauseLinkModal, setShowPauseLinkModal] = useState<boolean>(false);
+  const [pausedCodes, setPausedCodes] = useState<string[]>([]);
 
-  const handleSaveUsername = () => {
-    const trimmed = usernameText.trim();
-    if (!trimmed) {
-      Alert.alert('Error', 'Please enter a valid username.');
-      return;
+  // Load paused codes on mount
+  useEffect(() => {
+    if (visible) {
+      getPausedRoomCodes().then((codes) => setPausedCodes(codes));
     }
-    const formatted = trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
-    onUpdateNickname(formatted);
-    setIsEditingUsername(false);
-    Alert.alert('Success', 'Username updated!');
+  }, [visible]);
+
+  const handleToggleNotifications = () => {
+    setNotificationsEnabled((prev) => !prev);
   };
 
-  const handlePickPhoto = async () => {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert('Permission Required', 'We need access to your gallery to update your profile photo.');
-        return;
-      }
+  const togglePauseRoom = async (code: string) => {
+    let next: string[];
+    const isCurrentlyPaused = pausedCodes.includes(code);
+    const nextIsPaused = !isCurrentlyPaused;
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        onUpdateAvatar(result.assets[0].uri);
-      }
-    } catch (err) {
-      Alert.alert('Error', 'Failed to pick photo.');
+    if (isCurrentlyPaused) {
+      next = pausedCodes.filter((c) => c !== code);
+    } else {
+      next = [...pausedCodes, code];
     }
+    setPausedCodes(next);
+    await savePausedRoomCodes(next);
+    await setRoomPausedInDB(code, nextIsPaused);
   };
 
-  const handleConfirmDelete = () => {
+  const showHelp = () => {
     Alert.alert(
-      'Delete Account?',
-      'Are you sure you want to delete your account? This will permanently wipe your profile photo, username, local chats, and active rooms from this device.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Account',
-          style: 'destructive',
-          onPress: () => {
-            onClose();
-            onDeleteAccount();
-          },
-        },
-      ]
+      'Need Help?',
+      'Vailchat is a 100% anonymous & ephemeral messaging studio. Have questions or feedback? Reach us anytime at support@vailchat.com.'
     );
   };
+
+  const showSafety = () => {
+    Alert.alert(
+      'Safety Resources',
+      'We take user safety seriously. Cyberbullying and harassment are not tolerated. All room communications self-destruct within 24 hours.'
+    );
+  };
+
+  const showTerms = () => {
+    Alert.alert(
+      'Terms of Use',
+      'By using Vailchat, you agree to treat everyone with respect and follow local laws. Ephemeral rooms are destroyed upon expiration.'
+    );
+  };
+
+  const showPrivacy = () => {
+    Alert.alert(
+      'Privacy Policy',
+      'All chats are on-device AES-256 CTR encrypted. We do not store personal profiles, phone numbers, or metadata.'
+    );
+  };
+
+  const showLicenses = () => {
+    Alert.alert(
+      'Open Source Licenses',
+      'Vailchat is built using React Native, Expo, Supabase, and open-source cryptography libraries.'
+    );
+  };
+
+  const handleExecuteDelete = () => {
+    setShowDeleteConfirm(false);
+    onDeleteAccount();
+  };
+
+  const allManageableCodes = Array.from(
+    new Set([currentWhisperCode, ...activeRooms.map((r) => r.code)].filter(Boolean))
+  );
+
+  const isCurrentWhisperPaused = pausedCodes.includes(currentWhisperCode);
 
   return (
     <Modal
       animationType="slide"
-      transparent={true}
+      transparent={false}
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          {/* Header */}
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Settings</Text>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn} activeOpacity={0.7}>
-              <Text style={styles.modalCloseText}>Done</Text>
+      <View style={styles.container}>
+        {/* Top Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={onClose} activeOpacity={0.7}>
+            <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Settings</Text>
+          <View style={styles.headerRightPlaceholder} />
+        </View>
+
+        <ScrollView 
+          style={styles.scroll} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Section 1: Preferences */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Preferences</Text>
+          </View>
+
+          <View style={styles.cardGroup}>
+            <TouchableOpacity 
+              style={styles.rowItem} 
+              onPress={handleToggleNotifications}
+              activeOpacity={0.75}
+            >
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  <HugeiconsIcon icon={Notification01Icon} size={18} color={Colors.textPrimary} />
+                </View>
+                <Text style={styles.rowLabel}>Notifications</Text>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={setNotificationsEnabled}
+                trackColor={{ false: '#2D3A50', true: Colors.primary }}
+                thumbColor="#FFFFFF"
+              />
             </TouchableOpacity>
           </View>
 
-          <ScrollView 
-            style={styles.modalScroll} 
-            contentContainerStyle={styles.modalScrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Profile Section */}
-            <View style={styles.sectionCard}>
-              <View style={styles.avatarRow}>
-                <TouchableOpacity 
-                  style={styles.avatarWrapper} 
-                  onPress={handlePickPhoto}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.avatarCircle}>
-                    {userAvatar ? (
-                      <Image source={{ uri: userAvatar }} style={styles.avatarImg} />
-                    ) : (
-                      <View style={styles.defaultAvatarPlaceholder}>
-                        <HugeiconsIcon icon={UserIcon} size={42} color="#60718A" />
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.cameraIconBadge}>
-                    <HugeiconsIcon icon={Camera01Icon} size={14} color="#000000" />
-                  </View>
-                </TouchableOpacity>
+          {/* Section 2: Safety controls */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Safety controls</Text>
+          </View>
 
-                <View style={styles.profileInfo}>
-                  {isEditingUsername ? (
-                    <View style={styles.editUsernameRow}>
-                      <TextInput
-                        style={styles.usernameInput}
-                        value={usernameText}
-                        onChangeText={setUsernameText}
-                        placeholder="@username"
-                        placeholderTextColor={Colors.textMuted}
-                        autoFocus={true}
-                        autoCapitalize="none"
-                        maxLength={24}
-                      />
-                      <TouchableOpacity 
-                        style={styles.saveUsernameBtn} 
-                        onPress={handleSaveUsername}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.saveUsernameText}>Save</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <View>
-                      <View style={styles.usernameDisplayRow}>
-                        <Text style={styles.usernameText}>{userNickname || 'Anonymous'}</Text>
-                        <TouchableOpacity 
-                          style={styles.editPencilBtn}
-                          onPress={() => {
-                            setUsernameText(userNickname);
-                            setIsEditingUsername(true);
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <HugeiconsIcon icon={PencilEdit02Icon} size={14} color={Colors.primary} />
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={styles.userStatusSub}>Anonymous Identity</Text>
-                    </View>
+          <View style={styles.cardGroup}>
+            <TouchableOpacity 
+              style={styles.rowItem} 
+              onPress={() => setShowPauseLinkModal(true)}
+              activeOpacity={0.75}
+            >
+              <View style={styles.rowLeft}>
+                <View style={[styles.iconCircle, isCurrentWhisperPaused && { backgroundColor: 'rgba(255, 59, 105, 0.2)' }]}>
+                  <HugeiconsIcon 
+                    icon={HandIcon} 
+                    size={18} 
+                    color={isCurrentWhisperPaused ? Colors.primary : Colors.textPrimary} 
+                  />
+                </View>
+                <View>
+                  <Text style={styles.rowLabel}>Pause my link</Text>
+                  {pausedCodes.length > 0 && (
+                    <Text style={styles.pausedCountSubtitle}>
+                      {pausedCodes.length} {pausedCodes.length === 1 ? 'link' : 'links'} paused
+                    </Text>
                   )}
                 </View>
               </View>
-            </View>
+              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
 
-            {/* Privacy & Encryption */}
-            <View style={styles.sectionCard}>
-              <View style={styles.cardHeaderRow}>
-                <HugeiconsIcon icon={Shield01Icon} size={18} color={Colors.primary} />
-                <Text style={styles.cardSectionTitle}>Privacy & Security</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>End-to-End Encryption</Text>
-                <Text style={styles.infoValue}>AES-256 CTR</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Message Auto-Wipe</Text>
-                <Text style={styles.infoValue}>24 Hours</Text>
-              </View>
-              <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                <Text style={styles.infoLabel}>Anonymous Device Key</Text>
-                <Text style={styles.infoValueMonospace} numberOfLines={1}>
-                  {deviceId ? `${deviceId.slice(0, 14)}...` : 'Generated'}
-                </Text>
-              </View>
-            </View>
+          {/* Section 3: More */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>More</Text>
+          </View>
 
-            {/* Danger Zone: Delete Account */}
-            <View style={styles.dangerCard}>
-              <View style={styles.cardHeaderRow}>
-                <HugeiconsIcon icon={Delete02Icon} size={18} color={Colors.danger} />
-                <Text style={[styles.cardSectionTitle, { color: Colors.danger }]}>Danger Zone</Text>
+          <View style={styles.cardGroup}>
+            {/* I need help */}
+            <TouchableOpacity style={styles.rowItem} onPress={showHelp} activeOpacity={0.75}>
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  <HugeiconsIcon icon={HelpCircleIcon} size={18} color={Colors.textPrimary} />
+                </View>
+                <Text style={styles.rowLabel}>I need help</Text>
               </View>
-              <Text style={styles.dangerDesc}>
-                Permanently delete your account, wipe all active room history, and reset your local device keys.
+              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+
+            <View style={styles.separator} />
+
+            {/* Safety resources */}
+            <TouchableOpacity style={styles.rowItem} onPress={showSafety} activeOpacity={0.75}>
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  <HugeiconsIcon icon={Shield01Icon} size={18} color={Colors.textPrimary} />
+                </View>
+                <Text style={styles.rowLabel}>Safety resources</Text>
+              </View>
+              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+
+            <View style={styles.separator} />
+
+            {/* Terms of use */}
+            <TouchableOpacity style={styles.rowItem} onPress={showTerms} activeOpacity={0.75}>
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  <HugeiconsIcon icon={File01Icon} size={18} color={Colors.textPrimary} />
+                </View>
+                <Text style={styles.rowLabel}>Terms of use</Text>
+              </View>
+              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+
+            <View style={styles.separator} />
+
+            {/* Privacy policy */}
+            <TouchableOpacity style={styles.rowItem} onPress={showPrivacy} activeOpacity={0.75}>
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  <HugeiconsIcon icon={LockKeyIcon} size={18} color={Colors.textPrimary} />
+                </View>
+                <Text style={styles.rowLabel}>Privacy policy</Text>
+              </View>
+              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+
+            <View style={styles.separator} />
+
+            {/* Open source licenses */}
+            <TouchableOpacity style={styles.rowItem} onPress={showLicenses} activeOpacity={0.75}>
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  <HugeiconsIcon icon={CodeCircleIcon} size={18} color={Colors.textPrimary} />
+                </View>
+                <Text style={styles.rowLabel}>Open source licenses</Text>
+              </View>
+              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+
+            <View style={styles.separator} />
+
+            {/* Delete account */}
+            <TouchableOpacity 
+              style={styles.rowItem} 
+              onPress={() => setShowDeleteConfirm(true)} 
+              activeOpacity={0.75}
+            >
+              <View style={styles.rowLeft}>
+                <View style={[styles.iconCircle, styles.deleteIconCircle]}>
+                  <HugeiconsIcon icon={Delete02Icon} size={18} color={Colors.danger} />
+                </View>
+                <Text style={[styles.rowLabel, { color: Colors.danger }]}>Delete account</Text>
+              </View>
+              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        {/* Modal: Pause My Link Manager */}
+        <Modal
+          visible={showPauseLinkModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowPauseLinkModal(false)}
+        >
+          <View style={styles.pauseOverlay}>
+            <View style={styles.pauseContainer}>
+              <View style={styles.pauseHeader}>
+                <Text style={styles.pauseTitle}>Pause My Links</Text>
+                <TouchableOpacity 
+                  style={styles.pauseDoneBtn} 
+                  onPress={() => setShowPauseLinkModal(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.pauseDoneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.pauseDesc}>
+                Temporarily pause links to stop receiving new messages. Anyone opening a paused link will see that it is on hold.
               </Text>
-              <TouchableOpacity
-                style={styles.deleteAccBtn}
-                onPress={handleConfirmDelete}
-                activeOpacity={0.85}
-              >
-                <HugeiconsIcon icon={Delete02Icon} size={16} color={Colors.danger} />
-                <View style={{ width: 8 }} />
-                <Text style={styles.deleteAccBtnText}>Delete Account</Text>
-              </TouchableOpacity>
+
+              <ScrollView style={styles.pauseList} showsVerticalScrollIndicator={false}>
+                {allManageableCodes.map((code) => {
+                  const isPaused = pausedCodes.includes(code);
+                  const roomDetail = activeRooms.find((r) => r.code === code);
+                  const displayName = roomDetail?.name || (code === currentWhisperCode ? 'Active Whisper Link' : `Room: ${code}`);
+
+                  return (
+                    <View key={code} style={styles.pauseCard}>
+                      <View style={styles.pauseCardInfo}>
+                        <Text style={styles.pauseCardTitle} numberOfLines={1}>
+                          {displayName}
+                        </Text>
+                        <Text style={styles.pauseCardCode}>https://vailchat.com/join?code={code}</Text>
+                        <View style={[styles.pauseStatusBadge, isPaused ? styles.badgePaused : styles.badgeActive]}>
+                          <Text style={[styles.pauseStatusText, isPaused ? styles.textPaused : styles.textActive]}>
+                            {isPaused ? 'PAUSED' : 'ACTIVE'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Switch
+                        value={isPaused}
+                        onValueChange={() => togglePauseRoom(code)}
+                        trackColor={{ false: '#2D3A50', true: Colors.primary }}
+                        thumbColor="#FFFFFF"
+                      />
+                    </View>
+                  );
+                })}
+              </ScrollView>
             </View>
-          </ScrollView>
-        </View>
+          </View>
+        </Modal>
+
+        {/* Custom Confirmation Dialog for Delete Account */}
+        {showDeleteConfirm && (
+          <View style={styles.confirmModalOverlay}>
+            <View style={styles.confirmCard}>
+              <Text style={styles.confirmTitle}>Are you sure?</Text>
+              <Text style={styles.confirmSubtitle}>
+                If you delete your account, you will lose access to your username and all messages
+              </Text>
+              <View style={styles.confirmBtnRow}>
+                <TouchableOpacity
+                  style={styles.confirmCancelBtn}
+                  onPress={() => setShowDeleteConfirm(false)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.confirmCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.confirmDeleteBtn}
+                  onPress={handleExecuteDelete}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.confirmDeleteText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    paddingTop: Platform.OS === 'ios' ? 54 : 24,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  headerTitle: {
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  headerRightPlaceholder: {
+    width: 40,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  sectionHeader: {
+    marginTop: 20,
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  cardGroup: {
+    backgroundColor: '#182740',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#243656',
+    overflow: 'hidden',
+  },
+  rowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  rowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    flex: 1,
+  },
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#243656',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteIconCircle: {
+    backgroundColor: 'rgba(255, 51, 102, 0.15)',
+  },
+  rowLabel: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  pausedCountSubtitle: {
+    color: Colors.primary,
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    marginLeft: 66,
+  },
+  pauseOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
-  modalContainer: {
+  pauseContainer: {
     backgroundColor: Colors.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    height: '78%',
+    height: '75%',
     borderWidth: 1,
     borderColor: Colors.border,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
   },
-  modalHeader: {
+  pauseHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
+    marginBottom: 12,
   },
-  modalTitle: {
+  pauseTitle: {
     color: Colors.textPrimary,
     fontSize: 18,
     fontWeight: '800',
   },
-  modalCloseBtn: {
+  pauseDoneBtn: {
     backgroundColor: Colors.cardBackground,
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -272,180 +509,136 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  modalCloseText: {
+  pauseDoneText: {
     color: Colors.textPrimary,
-    fontWeight: '700',
     fontSize: 14,
+    fontWeight: '700',
   },
-  modalScroll: {
-    flex: 1,
-  },
-  modalScrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  sectionCard: {
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 16,
-    marginBottom: 16,
-  },
-  avatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  avatarWrapper: {
-    position: 'relative',
-  },
-  avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#1E2738',
-    borderWidth: 2,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarImg: {
-    width: '100%',
-    height: '100%',
-  },
-  defaultAvatarPlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cameraIconBadge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: '#FFFFFF',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  usernameDisplayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  usernameText: {
-    color: Colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  editPencilBtn: {
-    padding: 4,
-  },
-  userStatusSub: {
+  pauseDesc: {
     color: Colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
-    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 18,
   },
-  editUsernameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  usernameInput: {
+  pauseList: {
     flex: 1,
-    backgroundColor: Colors.surfaceInput,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    color: Colors.textPrimary,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: Colors.borderInput,
   },
-  saveUsernameBtn: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 12,
-  },
-  saveUsernameText: {
-    color: Colors.textWhite,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  cardHeaderRow: {
+  pauseCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 18,
+    padding: 14,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  cardSectionTitle: {
+  pauseCardInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  pauseCardTitle: {
     color: Colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
+    marginBottom: 3,
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  pauseCardCode: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginBottom: 6,
   },
-  infoLabel: {
-    color: Colors.textSecondary,
-    fontSize: 13,
+  pauseStatusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
-  infoValue: {
-    color: Colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '600',
+  badgeActive: {
+    backgroundColor: 'rgba(50, 205, 50, 0.15)',
   },
-  infoValueMonospace: {
-    color: Colors.textPrimary,
-    fontSize: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  badgePaused: {
+    backgroundColor: 'rgba(255, 59, 105, 0.15)',
   },
-  dangerCard: {
-    backgroundColor: 'rgba(255, 51, 102, 0.05)',
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 51, 102, 0.25)',
-    padding: 16,
-    marginBottom: 16,
+  pauseStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
-  dangerDesc: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: 14,
+  textActive: {
+    color: '#32CD32',
   },
-  deleteAccBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  textPaused: {
+    color: Colors.primary,
+  },
+  confirmModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
-    backgroundColor: Colors.dangerMuted,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 51, 102, 0.3)',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  confirmCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  confirmTitle: {
+    color: '#000000',
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  confirmSubtitle: {
+    color: '#333333',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+    fontWeight: '500',
+  },
+  confirmBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    backgroundColor: '#7A8699',
     paddingVertical: 14,
     borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  deleteAccBtnText: {
-    color: Colors.danger,
-    fontSize: 14,
+  confirmCancelText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  confirmDeleteBtn: {
+    flex: 1,
+    backgroundColor: '#FF3355',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmDeleteText: {
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '700',
   },
 });

@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   USERNAME: 'vailchat_username',
   AVATAR: 'vailchat_avatar',
   SEEN_WELCOME: 'vailchat_seen_welcome',
+  PAUSED_ROOMS: 'vailchat_paused_rooms',
 };
 
 // In-memory fallback in case native storage is unavailable in web / test environments
@@ -154,6 +155,28 @@ export async function saveLocalRecentRooms(rooms: RecentRoom[]): Promise<void> {
 export async function clearLocalRecentRooms(): Promise<void> {
   try {
     await safeRemoveItem(STORAGE_KEYS.RECENT_ROOMS);
+  } catch (e) {}
+}
+
+/**
+ * Gets list of paused room codes.
+ */
+export async function getPausedRoomCodes(): Promise<string[]> {
+  try {
+    const stored = await safeGetItem(STORAGE_KEYS.PAUSED_ROOMS);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {}
+  return [];
+}
+
+/**
+ * Saves list of paused room codes.
+ */
+export async function savePausedRoomCodes(codes: string[]): Promise<void> {
+  try {
+    await safeSetItem(STORAGE_KEYS.PAUSED_ROOMS, JSON.stringify(codes));
   } catch (e) {}
 }
 

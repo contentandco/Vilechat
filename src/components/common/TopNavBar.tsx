@@ -1,7 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import { Settings01Icon } from '@hugeicons/core-free-icons';
+import { Settings } from 'lucide-react-native';
 import { HomeTab } from '../../types';
 import { Colors } from '../../constants/theme';
 
@@ -49,7 +48,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
         onPress={onOpenSettings}
         activeOpacity={0.7}
       >
-        <HugeiconsIcon icon={Settings01Icon} size={22} color={Colors.textPrimary} />
+        <Settings size={20} color={Colors.textPrimary} strokeWidth={2.2} />
       </TouchableOpacity>
     </View>
   );
@@ -93,18 +92,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   settingsBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: Colors.cardBackground,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
   },
 });

@@ -16,6 +16,7 @@ import {
   saveStoredUsername,
   saveStoredAvatar,
   clearAllUserData,
+  getPausedRoomCodes,
 } from './src/services/storage';
 import { shareRoomLink } from './src/services/share';
 import {
@@ -247,6 +248,16 @@ export default function App() {
       return;
     }
 
+    // Check if the room link is paused
+    const paused = await getPausedRoomCodes();
+    if (paused.includes(cleanCode)) {
+      Alert.alert(
+        'Link Paused ⏸️',
+        'The creator of this room has temporarily paused new messages. Please check back later!'
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const room = await fetchRoomByCode(cleanCode);
@@ -297,6 +308,7 @@ export default function App() {
   const handleDeleteAccount = async () => {
     try {
       setLoading(true);
+      setShowSettingsModal(false);
       if (deviceId && recentRooms.length > 0) {
         await deleteDeviceSessions(deviceId, recentRooms.map((r) => r.code));
       }
@@ -495,18 +507,9 @@ export default function App() {
         <SettingsModal
           visible={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
-          userNickname={userNickname}
-          userAvatar={userAvatar}
-          deviceId={deviceId}
-          onUpdateNickname={(newName) => {
-            setUserNickname(newName);
-            saveStoredUsername(newName);
-          }}
-          onUpdateAvatar={(newAvatar) => {
-            setUserAvatar(newAvatar);
-            saveStoredAvatar(newAvatar);
-          }}
           onDeleteAccount={handleDeleteAccount}
+          activeRooms={verifiedActiveRooms}
+          currentWhisperCode={whisperRoomCode}
         />
 
         {/* Join by Code Modal */}

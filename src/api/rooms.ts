@@ -21,6 +21,7 @@ export async function createRoomInDB(code: string, name?: string) {
   const payload: any = {
     code,
     expires_at: expiresAt,
+    is_paused: false,
   };
 
   if (name) {
@@ -57,6 +58,10 @@ export async function fetchRoomByCode(code: string) {
     throw new Error('This room has expired.');
   }
 
+  if (data.is_paused) {
+    throw new Error('This room link is currently paused by the creator. Please check back later!');
+  }
+
   let roomName = data.name || data.code;
   if ((!roomName || roomName === data.code) && data.name_encrypted) {
     try {
@@ -74,6 +79,18 @@ export async function fetchRoomByCode(code: string) {
 }
 
 /**
+ * Updates the paused status of a room in the Supabase database.
+ */
+export async function setRoomPausedInDB(roomCode: string, isPaused: boolean) {
+  try {
+    await supabase
+      .from('rooms')
+      .update({ is_paused: isPaused })
+      .eq('code', roomCode);
+  } catch (e) {}
+}
+
+/**
  * Queries Supabase to filter out expired or deleted rooms and decodes room names.
  */
 export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<ActiveRoomDetail[]> {
@@ -85,7 +102,7 @@ export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<
     const codes = roomsList.map((r) => r.code);
     const { data, error } = await supabase
       .from('rooms')
-      .select('code, expires_at, name, name_encrypted')
+      .select('code, expires_at, name, name_encrypted, is_paused')
       .in('code', codes)
       .gt('expires_at', new Date().toISOString());
 

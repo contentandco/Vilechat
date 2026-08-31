@@ -12,12 +12,14 @@ create table if not exists rooms (
     expires_at timestamptz default (now() + interval '24 hours'),
     password text,
     name text,
-    name_encrypted text
+    name_encrypted text,
+    is_paused boolean default false
 );
 
 -- Migration for existing rooms table
 alter table rooms add column if not exists name text;
 alter table rooms add column if not exists name_encrypted text;
+alter table rooms add column if not exists is_paused boolean default false;
 
 -- Messages Table
 create table if not exists messages (
@@ -104,4 +106,3 @@ create policy "Allow anonymous reading of messages of active rooms" on messages
 -- Policies for Device Sessions
 create policy "Allow anonymous device session management" on device_sessions
     for all using (true) with check (true);
-
