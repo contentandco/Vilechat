@@ -71,7 +71,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   const [roomNameInputText, setRoomNameInputText] = useState<string>('');
   const [showStickers, setShowStickers] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
-  const [hasEarlierMessages, setHasEarlierMessages] = useState<boolean>(true);
+  const [hasEarlierMessages, setHasEarlierMessages] = useState<boolean>(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const { playingAudioId, playAudio, stopAudio } = useAudioPlayer();
@@ -129,16 +129,14 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     }
   };
 
-  // Scroll to bottom and mark room read on initial message load
+  // Scroll to bottom and update hasEarlierMessages dynamically
   useEffect(() => {
+    markActiveRoomRead();
     if (messages.length > 0) {
-      markActiveRoomRead();
       scrollToBottom(100);
-      if (messages.length < 20) {
-        setHasEarlierMessages(false);
-      }
     }
-  }, [roomId, messages.length === 0]);
+    setHasEarlierMessages(messages.length >= 20);
+  }, [roomId, messages.length]);
 
   // System Join Announcement & Real-Time subscriptions
   useEffect(() => {
@@ -398,7 +396,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         onStopRecording={stopRecording}
         showStickers={showStickers}
         setShowStickers={setShowStickers}
-        loading={loading || pickingImage || recordingProcessing || isLoadingMessages}
+        loading={loading || pickingImage || recordingProcessing}
       />
 
       {/* Stickers Panel */}
