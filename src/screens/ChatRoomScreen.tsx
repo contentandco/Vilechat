@@ -65,6 +65,8 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   const [participantsCount, setParticipantsCount] = useState<number>(1);
   const [showStickers, setShowStickers] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [hasEarlierMessages, setHasEarlierMessages] = useState<boolean>(false);
+  const [loadingEarlier, setLoadingEarlier] = useState<boolean>(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const { playingAudioId, playAudio, stopAudio } = useAudioPlayer();
@@ -76,13 +78,15 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     }, delay);
   };
 
-  // Load initial messages, send join announcement (once per room session), and subscribe to real-time events
+  // Load initial 20 most recent messages, send join announcement (once per room session), and subscribe to real-time events
   useEffect(() => {
     if (!roomId) return;
 
-    fetchRoomMessages(roomId, roomCode)
+    fetchRoomMessages(roomId, roomCode, 20)
       .then(async (loadedMessages) => {
         setMessages(loadedMessages);
+        setHasEarlierMessages(loadedMessages.length >= 20);
+
         const humanParticipants = new Set(
           loadedMessages
             .filter((m) => !m.is_system && m.sender_id !== '__system__' && m.sender_name !== 'System')
@@ -153,6 +157,24 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
       stopAudio();
     };
   }, [roomId, roomCode]);
+
+  // Load 20 earlier messages on demand
+  const handleLoadEarlier = async () => {
+    if (loadingEarlier || messages.length === 0) return;
+    setLoadingEarlier(true);
+    try {
+      const oldestCreatedAt = messages[0].created_at;
+      const earlier = await fetchRoomMessages(roomId, roomCode, 20, oldestCreatedAt);
+      if (earlier.length < 20) {
+        setHasEarlierMessages(false);
+      }
+      setMessages((prev) => [...earlier, ...prev]);
+    } catch (e) {
+      console.warn('Failed to load earlier messages:', e);
+    } finally {
+      setLoadingEarlier(false);
+    }
+  };
 
   // Send text message
   const handleSendMessage = async () => {
@@ -357,7 +379,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         }}
       />
 
-      {/* Messages Stream */}
+      {/* Messages Stream with 20-Message Pagination */}
       <MessageList
         scrollViewRef={scrollViewRef}
         messages={messages}
@@ -365,6 +387,9 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         playingAudioId={playingAudioId}
         onPlayAudio={playAudio}
         onScrollBeginDrag={() => setShowStickers(false)}
+        hasEarlierMessages={hasEarlierMessages}
+        loadingEarlier={loadingEarlier}
+        onLoadEarlier={handleLoadEarlier}
       />
 
       {/* Input Bar */}

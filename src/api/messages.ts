@@ -14,18 +14,30 @@ export function generateClientUUID(): string {
 }
 
 /**
- * Fetches all messages for a room and decrypts them.
+ * Fetches the most recent messages for a room with pagination support (default 20 most recent).
  */
-export async function fetchRoomMessages(roomId: string, roomCode: string): Promise<MessageItem[]> {
-  const { data, error } = await supabase
+export async function fetchRoomMessages(
+  roomId: string, 
+  roomCode: string, 
+  limit: number = 20, 
+  beforeCreatedAt?: string
+): Promise<MessageItem[]> {
+  let query = supabase
     .from('messages')
-    .select()
-    .eq('room_id', roomId)
-    .order('created_at', { ascending: true });
+    .select('id, sender_id, sender_name, content_encrypted, is_image, is_voice, is_sticker, created_at')
+    .eq('room_id', roomId);
+
+  if (beforeCreatedAt) {
+    query = query.lt('created_at', beforeCreatedAt);
+  }
+
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(limit);
 
   if (error) throw error;
 
-  return (data || []).map((msg: any) => {
+  const decrypted = (data || []).map((msg: any) => {
     const isSystem = msg.sender_id === '__system__' || msg.sender_name === 'System';
     return {
       id: msg.id,
@@ -39,6 +51,9 @@ export async function fetchRoomMessages(roomId: string, roomCode: string): Promi
       created_at: msg.created_at,
     };
   });
+
+  // Reverse to render chronologically
+  return decrypted.reverse();
 }
 
 export interface SendMessageParams {

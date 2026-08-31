@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { LockKeyIcon } from '@hugeicons/core-free-icons';
 import { MessageItem } from '../../types';
@@ -13,6 +13,9 @@ interface MessageListProps {
   playingAudioId: string | null;
   onPlayAudio: (id: string, content: string) => void;
   onScrollBeginDrag?: () => void;
+  hasEarlierMessages?: boolean;
+  loadingEarlier?: boolean;
+  onLoadEarlier?: () => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -22,6 +25,9 @@ export const MessageList: React.FC<MessageListProps> = ({
   playingAudioId,
   onPlayAudio,
   onScrollBeginDrag,
+  hasEarlierMessages = false,
+  loadingEarlier = false,
+  onLoadEarlier,
 }) => {
   return (
     <ScrollView
@@ -31,6 +37,23 @@ export const MessageList: React.FC<MessageListProps> = ({
       onScrollBeginDrag={onScrollBeginDrag}
       keyboardShouldPersistTaps="handled"
     >
+      {/* Load earlier messages banner (Pagination 20) */}
+      {hasEarlierMessages && (
+        <View style={styles.paginationContainer}>
+          {loadingEarlier ? (
+            <ActivityIndicator size="small" color={Colors.primary} />
+          ) : (
+            <TouchableOpacity 
+              style={styles.loadEarlierBtn}
+              onPress={onLoadEarlier}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.loadEarlierText}>Load earlier messages</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       {messages.length === 0 ? (
         <View style={styles.emptyChatPlaceholder}>
           <View style={styles.emptyIconCircle}>
@@ -79,6 +102,24 @@ const styles = StyleSheet.create({
   messagesListContent: {
     paddingHorizontal: 16,
     paddingVertical: 20,
+  },
+  paginationContainer: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
+  loadEarlierBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  loadEarlierText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   emptyChatPlaceholder: {
     alignItems: 'center',

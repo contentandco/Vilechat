@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, View, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, View, ScrollView, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import { HomeTab, ActiveRoomDetail } from '../types';
 import { Colors } from '../constants/theme';
 import { TopNavBar } from '../components/common/TopNavBar';
@@ -66,6 +66,11 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   onOpenSettings,
 }) => {
   const currentRoomCode = activeRoomCode || whisperRoomCode;
+  const [inboxPage, setInboxPage] = useState<number>(1);
+  const PAGE_SIZE = 10;
+
+  const visibleRooms = verifiedActiveRooms.slice(0, inboxPage * PAGE_SIZE);
+  const hasMoreRooms = verifiedActiveRooms.length > visibleRooms.length;
 
   return (
     <View style={styles.landingContainer}>
@@ -73,7 +78,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
       <TopNavBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        hasUnread={verifiedActiveRooms.length > 0}
+        hasUnread={verifiedActiveRooms.some((r) => r.hasUnread)}
         userNickname={userNickname}
         onOpenSettings={onOpenSettings}
       />
@@ -86,11 +91,11 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           keyboardShouldPersistTaps="handled"
         >
           <NglCard
+            userAvatar={userAvatar}
             themeIndex={themeIndex}
             promptIndex={promptIndex}
             setPromptIndex={setPromptIndex}
             roomCode={currentRoomCode}
-            userAvatar={userAvatar}
             onRandomizeNickname={onRandomizeNickname}
           />
 
@@ -104,7 +109,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
         </ScrollView>
       )}
 
-      {/* Tab 2: Inbox Stream */}
+      {/* Tab 2: Inbox Stream (10-Item Pagination) */}
       {activeTab === 'inbox' && (
         <View style={styles.inboxWrapper}>
           <ScrollView 
@@ -122,7 +127,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 onDeleteSelected={onDeleteSelectedRooms}
               />
 
-              {checkingHistory ? (
+              {checkingHistory && verifiedActiveRooms.length === 0 ? (
                 <View style={styles.centeredLoading}>
                   <ActivityIndicator size="small" color={Colors.primary} />
                 </View>
@@ -130,7 +135,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 <EmptyInbox onGoToWhisper={() => setActiveTab('whisper')} />
               ) : (
                 <View style={styles.roomsList}>
-                  {verifiedActiveRooms.map((room) => (
+                  {visibleRooms.map((room) => (
                     <InboxItem
                       key={room.code}
                       room={room}
@@ -145,6 +150,19 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                       }}
                     />
                   ))}
+
+                  {/* 10-Item Pagination Button */}
+                  {hasMoreRooms && (
+                    <TouchableOpacity
+                      style={styles.loadMoreBtn}
+                      onPress={() => setInboxPage((p) => p + 1)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={styles.loadMoreText}>
+                        Load 10 more rooms ({verifiedActiveRooms.length - visibleRooms.length} remaining)
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             </View>
@@ -178,14 +196,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
   },
+  roomsList: {
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 12,
+  },
   centeredLoading: {
     paddingVertical: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  roomsList: {
-    gap: 12,
+  loadMoreBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 8,
-    marginBottom: 24,
+    marginBottom: 12,
+  },
+  loadMoreText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
