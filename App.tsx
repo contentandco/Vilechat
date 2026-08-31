@@ -46,6 +46,7 @@ import {
 import { messageKeys } from './src/hooks/queries/useMessagesQuery';
 
 // Screens and Modals
+import { SplashScreen } from './src/screens/SplashScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { OnboardingVibeScreen, VibeOption } from './src/screens/OnboardingVibeScreen';
 import { OnboardingUsernameScreen } from './src/screens/OnboardingUsernameScreen';
@@ -104,6 +105,7 @@ function MainApp() {
   const resetAllState = useAppStore((s) => s.resetAllState);
 
   // Local UI transient feedback state
+  const [isSplashActive, setIsSplashActive] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [nameSavedFeedback, setNameSavedFeedback] = useState<boolean>(false);
   const [roomCreatedFeedback] = useState<boolean>(false);
@@ -478,13 +480,24 @@ function MainApp() {
       <RNSafeAreaView style={styles.container}>
         <StatusBar 
           barStyle="light-content" 
-          backgroundColor={currentScreen === 'welcome' ? '#E5006C' : Colors.background} 
+          backgroundColor={
+            isSplashActive 
+              ? '#FF2A6D' 
+              : currentScreen === 'welcome' 
+              ? '#E5006C' 
+              : Colors.background
+          } 
         />
 
-        {/* Step 1: Welcome Onboarding Screen */}
-        {currentScreen === 'welcome' && (
-          <WelcomeScreen onGetStarted={handleGetStarted} />
-        )}
+        {/* Initial Animated Launch Splash Screen */}
+        {isSplashActive ? (
+          <SplashScreen onFinish={() => setIsSplashActive(false)} />
+        ) : (
+          <>
+            {/* Step 1: Welcome Onboarding Screen */}
+            {currentScreen === 'welcome' && (
+              <WelcomeScreen onGetStarted={handleGetStarted} />
+            )}
 
         {/* Step 2: Choose Your Anonymous Vibe Screen */}
         {currentScreen === 'onboarding-vibe' && (
@@ -606,6 +619,8 @@ function MainApp() {
           onShareLink={handleUniversalShare}
           onGoToInbox={() => setActiveTab('inbox')}
         />
+          </>
+        )}
       </RNSafeAreaView>
     </SafeAreaProvider>
   );
