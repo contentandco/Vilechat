@@ -12,9 +12,14 @@ export function checkSupabaseConfig(): void {
 }
 
 /**
- * Creates a new room in the Supabase database (24 hour expiration).
+ * Creates a new room in the Supabase database (24 hour expiration) with fallback support.
  */
-export async function createRoomInDB(code: string, name?: string) {
+export async function createRoomInDB(
+  code: string, 
+  name?: string, 
+  creatorDeviceId?: string, 
+  creatorId?: string
+) {
   checkSupabaseConfig();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   
@@ -24,19 +29,62 @@ export async function createRoomInDB(code: string, name?: string) {
     is_paused: false,
   };
 
+  if (creatorDeviceId) payload.creator_device_id = creatorDeviceId;
+  if (creatorId) payload.creator_id = creatorId;
+
   if (name) {
     payload.name = name;
     payload.name_encrypted = encryptMessage(name, code);
   }
 
-  const { data, error } = await supabase
-    .from('rooms')
-    .insert([payload])
-    .select()
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('rooms')
+      .insert([payload])
+      .select()
+      .single();
 
-  if (error) throw error;
-  return data;
+    if (!error && data) {
+      return data;
+    }
+
+    // If duplicate code, fetch existing
+    if (error && (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique'))) {
+      const existing = await supabase.from('rooms').select().eq('code', code).single();
+      if (existing.data) return existing.data;
+    }
+
+    if (error) throw error;
+  } catch (err: any) {
+    // If schema lacks new columns (creator_device_id / is_paused), fallback to core columns
+    console.warn('Initial room insert failed, attempting fallback with base schema:', err?.message || err);
+
+    const basePayload: any = {
+      code,
+      expires_at: expiresAt,
+    };
+    if (name) {
+      basePayload.name = name;
+      basePayload.name_encrypted = encryptMessage(name, code);
+    }
+
+    const { data, error } = await supabase
+      .from('rooms')
+      .insert([basePayload])
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
+        const existing = await supabase.from('rooms').select().eq('code', code).single();
+        if (existing.data) return existing.data;
+      }
+      console.error('Fatal createRoomInDB error:', error);
+      throw error;
+    }
+
+    return data;
+  }
 }
 
 /**
@@ -44,28 +92,31 @@ export async function createRoomInDB(code: string, name?: string) {
  */
 export async function fetchRoomByCode(code: string) {
   checkSupabaseConfig();
+  const cleanCode = code.trim().toLowerCase();
+
   const { data, error } = await supabase
     .from('rooms')
-    .select()
-    .eq('code', code)
+    .select('*')
+    .ilike('code', cleanCode)
     .single();
 
   if (error || !data) {
-    throw new Error('Room not found or has expired.');
+    console.error('Fetch room error for code:', cleanCode, error);
+    throw new Error('Room not found or has expired. Make sure the code is exact.');
   }
 
   if (new Date(data.expires_at).getTime() < Date.now()) {
     throw new Error('This room has expired.');
   }
 
-  if (data.is_paused) {
+  if (data.is_paused === true) {
     throw new Error('This room link is currently paused by the creator. Please check back later!');
   }
 
   let roomName = data.name || data.code;
   if ((!roomName || roomName === data.code) && data.name_encrypted) {
     try {
-      const dec = decryptMessage(data.name_encrypted, code);
+      const dec = decryptMessage(data.name_encrypted, cleanCode);
       if (dec && dec.trim()) {
         roomName = dec.trim();
       }
@@ -75,6 +126,9 @@ export async function fetchRoomByCode(code: string) {
   return {
     ...data,
     resolvedName: roomName,
+    creator_id: data.creator_id || null,
+    creator_device_id: data.creator_device_id || null,
+    is_paused: Boolean(data.is_paused),
   };
 }
 
@@ -86,8 +140,68 @@ export async function setRoomPausedInDB(roomCode: string, isPaused: boolean) {
     await supabase
       .from('rooms')
       .update({ is_paused: isPaused })
-      .eq('code', roomCode);
+      .ilike('code', roomCode);
+  } catch (e) {
+    console.warn('Failed to update is_paused in DB (column may not exist yet):', e);
+  }
+}
+
+/**
+ * Deletes a room completely from the Supabase database.
+ */
+export async function deleteRoomPermanently(roomId: string, roomCode: string) {
+  try {
+    const channel = supabase.channel(`room_actions_${roomId}`);
+    await channel.send({
+      type: 'broadcast',
+      event: 'room_deleted',
+      payload: { roomCode },
+    });
   } catch (e) {}
+
+  const { error } = await supabase
+    .from('rooms')
+    .delete()
+    .eq('id', roomId);
+
+  if (error) throw error;
+}
+
+/**
+ * Broadcasts a kick event to remove a specific user from the room.
+ */
+export async function broadcastKickUser(roomId: string, targetUserId: string) {
+  const channel = supabase.channel(`room_actions_${roomId}`);
+  await channel.send({
+    type: 'broadcast',
+    event: 'user_kicked',
+    payload: { targetUserId },
+  });
+}
+
+/**
+ * Subscribes to real-time room administrative actions (kick, delete).
+ */
+export function subscribeToRoomActions(
+  roomId: string,
+  onKicked: (targetUserId: string) => void,
+  onDeleted: () => void
+) {
+  const channel = supabase
+    .channel(`room_actions_${roomId}`)
+    .on('broadcast', { event: 'user_kicked' }, (event) => {
+      if (event.payload?.targetUserId) {
+        onKicked(event.payload.targetUserId);
+      }
+    })
+    .on('broadcast', { event: 'room_deleted' }, () => {
+      onDeleted();
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 /**
@@ -102,7 +216,7 @@ export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<
     const codes = roomsList.map((r) => r.code);
     const { data, error } = await supabase
       .from('rooms')
-      .select('code, expires_at, name, name_encrypted, is_paused')
+      .select('*')
       .in('code', codes)
       .gt('expires_at', new Date().toISOString());
 

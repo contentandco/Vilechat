@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,6 +9,7 @@ import {
   Modal,
   Platform,
   Alert,
+  Switch,
 } from 'react-native';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
@@ -20,10 +21,14 @@ import {
   Logout01Icon,
   PencilEdit02Icon,
   SentIcon,
+  HandIcon,
+  Delete02Icon,
+  UserRemove01Icon,
 } from '@hugeicons/core-free-icons';
 import { MessageItem } from '../../types';
 import { Colors } from '../../constants/theme';
 import { copyRoomCodeToClipboard, copyRoomLinkToClipboard, shareRoomLink } from '../../services/share';
+import { setRoomPausedInDB } from '../../api/rooms';
 
 interface RoomInfoModalProps {
   visible: boolean;
@@ -35,10 +40,15 @@ interface RoomInfoModalProps {
   userNickname: string;
   userId: string;
   messages: MessageItem[];
+  isCreator: boolean;
+  isPaused?: boolean;
+  setIsPaused?: (paused: boolean) => void;
   roomNameInputText: string;
   setRoomNameInputText: (text: string) => void;
   onRenameRoom: (newName: string) => Promise<void>;
   onLeaveRoom: () => void;
+  onDestroyRoom?: () => void;
+  onKickParticipant?: (participantId: string, participantName: string) => void;
   loading: boolean;
 }
 
@@ -52,19 +62,41 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
   userNickname,
   userId,
   messages,
+  isCreator,
+  isPaused = false,
+  setIsPaused,
   roomNameInputText,
   setRoomNameInputText,
   onRenameRoom,
   onLeaveRoom,
+  onDestroyRoom,
+  onKickParticipant,
   loading,
 }) => {
+  const [localPaused, setLocalPaused] = useState<boolean>(isPaused);
+
   const handleSaveName = async () => {
+    if (!isCreator) return;
     const newName = roomNameInputText.trim();
     if (!newName) {
       Alert.alert('Error', 'Please enter a valid room name.');
       return;
     }
     await onRenameRoom(newName);
+  };
+
+  const handleTogglePause = async () => {
+    if (!isCreator) return;
+    const next = !localPaused;
+    setLocalPaused(next);
+    setIsPaused?.(next);
+    await setRoomPausedInDB(activeRoomCode, next);
+    Alert.alert(
+      next ? 'Link Paused' : 'Link Active',
+      next
+        ? 'New participants cannot join until you unpause.'
+        : 'Link is now active and joinable.'
+    );
   };
 
   const handleConfirmLeave = () => {
@@ -80,6 +112,44 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
             onClose();
             onLeaveRoom();
           } 
+        },
+      ]
+    );
+  };
+
+  const handleConfirmDestroy = () => {
+    Alert.alert(
+      'Destroy & Delete Room?',
+      'As the creator, this will permanently delete the entire room and all its messages for everyone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Destroy Room',
+          style: 'destructive',
+          onPress: () => {
+            onClose();
+            if (onDestroyRoom) {
+              onDestroyRoom();
+            } else {
+              onLeaveRoom();
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleKick = (participantId: string, participantName: string) => {
+    if (!isCreator || !onKickParticipant) return;
+    Alert.alert(
+      `Kick ${participantName}?`,
+      `This will immediately remove ${participantName} from this secret room.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Kick User',
+          style: 'destructive',
+          onPress: () => onKickParticipant(participantId, participantName),
         },
       ]
     );
@@ -118,7 +188,9 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
               </View>
               <Text style={styles.modalRoomName}>{activeRoomName}</Text>
               <View style={styles.e2eBadge}>
-                <Text style={styles.e2eBadgeText}>🔒 End-to-End Encrypted</Text>
+                <Text style={styles.e2eBadgeText}>
+                  {isCreator ? '👑 Room Creator • End-to-End Encrypted' : '🔒 End-to-End Encrypted'}
+                </Text>
               </View>
             </View>
 
@@ -173,36 +245,65 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* 2. RENAME ROOM */}
-            <View style={styles.modalCard}>
-              <View style={styles.modalCardHeader}>
-                <HugeiconsIcon icon={PencilEdit02Icon} size={18} color={Colors.primary} />
-                <Text style={styles.modalCardTitle}>Rename Room</Text>
-              </View>
-              <Text style={styles.modalCardDesc}>
-                Set a friendly custom name visible to all participants.
-              </Text>
-              <View style={styles.renameFormRow}>
-                <TextInput
-                  style={styles.renameInput}
-                  placeholder="Enter new room name..."
-                  placeholderTextColor={Colors.textMuted}
-                  value={roomNameInputText}
-                  onChangeText={setRoomNameInputText}
-                  maxLength={32}
-                  returnKeyType="done"
-                  onSubmitEditing={handleSaveName}
-                />
-                <TouchableOpacity 
-                  style={styles.renameSaveBtn}
-                  onPress={handleSaveName}
-                  disabled={loading}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.renameSaveText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            {/* 2. CREATOR CONTROLS: RENAME & PAUSE LINK */}
+            {isCreator ? (
+              <>
+                {/* Rename Room */}
+                <View style={styles.modalCard}>
+                  <View style={styles.modalCardHeader}>
+                    <HugeiconsIcon icon={PencilEdit02Icon} size={18} color={Colors.primary} />
+                    <Text style={styles.modalCardTitle}>Rename Room</Text>
+                  </View>
+                  <Text style={styles.modalCardDesc}>
+                    Give this room a friendly name visible to all participants.
+                  </Text>
+                  <View style={styles.renameFormRow}>
+                    <TextInput
+                      style={styles.renameInput}
+                      placeholder="Enter new room name..."
+                      placeholderTextColor={Colors.textMuted}
+                      value={roomNameInputText}
+                      onChangeText={setRoomNameInputText}
+                      maxLength={32}
+                      returnKeyType="done"
+                      onSubmitEditing={handleSaveName}
+                    />
+                    <TouchableOpacity 
+                      style={styles.renameSaveBtn}
+                      onPress={handleSaveName}
+                      disabled={loading}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.renameSaveText}>Save</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Pause Room Link (Creator Only) */}
+                <View style={styles.modalCard}>
+                  <View style={styles.modalCardHeader}>
+                    <HugeiconsIcon icon={HandIcon} size={18} color={Colors.primary} />
+                    <Text style={styles.modalCardTitle}>Pause Room Link</Text>
+                  </View>
+                  <Text style={styles.modalCardDesc}>
+                    Temporarily stop new people from joining this room.
+                  </Text>
+                  <View style={styles.pauseToggleRow}>
+                    <View style={[styles.pauseStatusBadge, localPaused ? styles.badgePaused : styles.badgeActive]}>
+                      <Text style={[styles.pauseStatusText, localPaused ? styles.textPaused : styles.textActive]}>
+                        {localPaused ? 'PAUSED' : 'ACTIVE'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={localPaused}
+                      onValueChange={handleTogglePause}
+                      trackColor={{ false: '#2D3A50', true: Colors.primary }}
+                      thumbColor="#FFFFFF"
+                    />
+                  </View>
+                </View>
+              </>
+            ) : null}
 
             {/* 3. SELF-DESTRUCT TIMER */}
             <View style={styles.modalCard}>
@@ -218,7 +319,7 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
               </View>
             </View>
 
-            {/* 4. ACTIVE PARTICIPANTS */}
+            {/* 4. ACTIVE PARTICIPANTS (WITH KICK ACTION FOR CREATOR) */}
             <View style={styles.modalCard}>
               <View style={styles.modalCardHeader}>
                 <HugeiconsIcon icon={UserGroupIcon} size={18} color={Colors.primary} />
@@ -227,32 +328,60 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
               <View style={styles.participantsList}>
                 {/* You */}
                 <View style={styles.participantItem}>
-                  <View style={styles.participantDotMe} />
-                  <Text style={styles.participantName}>
-                    {userNickname} <Text style={{ color: Colors.primary }}>(You)</Text>
-                  </Text>
+                  <View style={styles.participantLeft}>
+                    <View style={styles.participantDotMe} />
+                    <Text style={styles.participantName}>
+                      {userNickname} <Text style={{ color: Colors.primary }}>({isCreator ? 'Creator / You' : 'You'})</Text>
+                    </Text>
+                  </View>
                 </View>
 
                 {/* Other Room Members */}
                 {otherParticipants.map((msg) => (
                   <View key={msg.id} style={styles.participantItem}>
-                    <View style={styles.participantDotOther} />
-                    <Text style={styles.participantName}>{msg.sender_name}</Text>
+                    <View style={styles.participantLeft}>
+                      <View style={styles.participantDotOther} />
+                      <Text style={styles.participantName}>{msg.sender_name}</Text>
+                    </View>
+
+                    {/* Creator Kick Button */}
+                    {isCreator && (
+                      <TouchableOpacity
+                        style={styles.kickBtn}
+                        onPress={() => handleKick(msg.sender_id, msg.sender_name)}
+                        activeOpacity={0.75}
+                      >
+                        <HugeiconsIcon icon={UserRemove01Icon} size={13} color={Colors.danger} />
+                        <Text style={styles.kickBtnText}>Kick</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ))}
               </View>
             </View>
 
-            {/* LEAVE ROOM BUTTON */}
-            <TouchableOpacity 
-              style={styles.modalDeleteBtn} 
-              onPress={handleConfirmLeave}
-              activeOpacity={0.8}
-            >
-              <HugeiconsIcon icon={Logout01Icon} size={18} color={Colors.danger} />
-              <View style={styles.btnIconSpacer} />
-              <Text style={styles.modalDeleteBtnText}>Leave Room</Text>
-            </TouchableOpacity>
+            {/* ACTION BUTTON: DESTROY (CREATOR) vs LEAVE (GUEST) */}
+            {isCreator ? (
+              <TouchableOpacity 
+                style={styles.modalDeleteBtn} 
+                onPress={handleConfirmDestroy}
+                activeOpacity={0.8}
+              >
+                <HugeiconsIcon icon={Delete02Icon} size={18} color={Colors.danger} />
+                <View style={styles.btnIconSpacer} />
+                <Text style={styles.modalDeleteBtnText}>Destroy & Delete Room</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                style={styles.modalDeleteBtn} 
+                onPress={handleConfirmLeave}
+                activeOpacity={0.8}
+              >
+                <HugeiconsIcon icon={Logout01Icon} size={18} color={Colors.danger} />
+                <View style={styles.btnIconSpacer} />
+                <Text style={styles.modalDeleteBtnText}>Leave Room</Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -476,6 +605,33 @@ const styles = StyleSheet.create({
     fontWeight: 'normal',
     fontSize: 13,
   },
+  pauseToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 4,
+  },
+  pauseStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeActive: {
+    backgroundColor: 'rgba(50, 205, 50, 0.15)',
+  },
+  badgePaused: {
+    backgroundColor: 'rgba(255, 59, 105, 0.15)',
+  },
+  pauseStatusText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  textActive: {
+    color: '#32CD32',
+  },
+  textPaused: {
+    color: Colors.primary,
+  },
   timerBadge: {
     backgroundColor: Colors.dangerMuted,
     borderWidth: 1,
@@ -497,7 +653,14 @@ const styles = StyleSheet.create({
   participantItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  participantLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
+    flex: 1,
   },
   participantDotMe: {
     width: 8,
@@ -515,6 +678,22 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
+  },
+  kickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 51, 102, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 51, 102, 0.2)',
+  },
+  kickBtnText: {
+    color: Colors.danger,
+    fontSize: 11,
+    fontWeight: '700',
   },
   modalDeleteBtn: {
     flexDirection: 'row',

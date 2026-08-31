@@ -13,13 +13,17 @@ create table if not exists rooms (
     password text,
     name text,
     name_encrypted text,
-    is_paused boolean default false
+    is_paused boolean default false,
+    creator_id text,
+    creator_device_id text
 );
 
 -- Migration for existing rooms table
 alter table rooms add column if not exists name text;
 alter table rooms add column if not exists name_encrypted text;
 alter table rooms add column if not exists is_paused boolean default false;
+alter table rooms add column if not exists creator_id text;
+alter table rooms add column if not exists creator_device_id text;
 
 -- Messages Table
 create table if not exists messages (
@@ -85,6 +89,9 @@ create policy "Allow anonymous reading of active rooms" on rooms
 
 create policy "Allow anonymous update of rooms" on rooms
     for update using (true) with check (true);
+
+create policy "Allow anonymous deletion of rooms" on rooms
+    for delete using (true);
 
 -- Policies for Messages
 create policy "Allow anonymous creation of messages" on messages

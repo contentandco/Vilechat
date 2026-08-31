@@ -16,7 +16,13 @@ import {
   subscribeToRoomMessages,
   generateClientUUID,
 } from '../api/messages';
-import { subscribeToRoomMeta, renameRoomInDB } from '../api/rooms';
+import {
+  subscribeToRoomMeta,
+  renameRoomInDB,
+  broadcastKickUser,
+  subscribeToRoomActions,
+  deleteRoomPermanently,
+} from '../api/rooms';
 
 interface ChatRoomScreenProps {
   roomId: string;
@@ -24,10 +30,13 @@ interface ChatRoomScreenProps {
   roomName: string;
   setRoomName: (name: string) => void;
   userId: string;
+  deviceId: string;
   userNickname: string;
   timeRemaining: string;
+  isCreator: boolean;
   onBack: () => void;
   onLeaveRoom: () => void;
+  onDestroyRoom?: () => void;
   showRoomInfo: boolean;
   setShowRoomInfo: (show: boolean) => void;
 }
@@ -38,10 +47,13 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   roomName,
   setRoomName,
   userId,
+  deviceId,
   userNickname,
   timeRemaining,
+  isCreator,
   onBack,
   onLeaveRoom,
+  onDestroyRoom,
   showRoomInfo,
   setShowRoomInfo,
 }) => {
@@ -90,9 +102,32 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
       setRoomName(newName);
     });
 
+    const unsubscribeActions = subscribeToRoomActions(
+      roomId,
+      (kickedUserId) => {
+        if (kickedUserId === userId) {
+          Alert.alert(
+            'Removed',
+            'You were removed from this room by the creator.',
+            [{ text: 'OK', onPress: onLeaveRoom }]
+          );
+        }
+      },
+      () => {
+        if (!isCreator) {
+          Alert.alert(
+            'Room Closed',
+            'This room was closed and deleted by the creator.',
+            [{ text: 'OK', onPress: onLeaveRoom }]
+          );
+        }
+      }
+    );
+
     return () => {
       unsubscribeMessages();
       unsubscribeMeta();
+      unsubscribeActions();
       stopAudio();
     };
   }, [roomId, roomCode]);
@@ -105,7 +140,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     setInputText('');
     const msgId = generateClientUUID();
 
-    // Optimistic update
     const optimisticMsg: MessageItem = {
       id: msgId,
       sender_id: userId,
@@ -238,8 +272,9 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     }
   );
 
-  // Rename room
+  // Rename room (Creator only)
   const handleRenameRoom = async (newName: string) => {
+    if (!isCreator) return;
     try {
       setLoading(true);
       await renameRoomInDB(roomId, roomCode, newName);
@@ -247,6 +282,36 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
       Alert.alert('Success', 'Room renamed successfully!');
     } catch (e) {
       Alert.alert('Error', 'Failed to update room name.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Kick participant (Creator only)
+  const handleKickParticipant = async (participantId: string, participantName: string) => {
+    if (!isCreator) return;
+    try {
+      await broadcastKickUser(roomId, participantId);
+      setMessages((prev) => prev.filter((m) => m.sender_id !== participantId));
+      Alert.alert('User Kicked', `${participantName} was removed from the room.`);
+    } catch (e) {
+      Alert.alert('Error', 'Failed to kick user.');
+    }
+  };
+
+  // Destroy room (Creator only)
+  const handleDestroyRoom = async () => {
+    if (!isCreator) return;
+    try {
+      setLoading(true);
+      await deleteRoomPermanently(roomId, roomCode);
+      if (onDestroyRoom) {
+        onDestroyRoom();
+      } else {
+        onLeaveRoom();
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to delete room.');
     } finally {
       setLoading(false);
     }
@@ -310,10 +375,13 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         userNickname={userNickname}
         userId={userId}
         messages={messages}
+        isCreator={isCreator}
         roomNameInputText={roomNameInputText}
         setRoomNameInputText={setRoomNameInputText}
         onRenameRoom={handleRenameRoom}
         onLeaveRoom={onLeaveRoom}
+        onDestroyRoom={handleDestroyRoom}
+        onKickParticipant={handleKickParticipant}
         loading={loading}
       />
     </KeyboardAvoidingView>

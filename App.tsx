@@ -27,6 +27,7 @@ import {
   fetchDeviceSessions,
   deleteDeviceSessions,
   renameRoomByCodeInDB,
+  deleteRoomPermanently,
 } from './src/api/rooms';
 
 // Custom Hooks
@@ -63,6 +64,8 @@ export default function App() {
   const [activeRoomCode, setActiveRoomCode] = useState<string>('');
   const [activeRoomName, setActiveRoomName] = useState<string>('Secret Room');
   const [roomExpiresAt, setRoomExpiresAt] = useState<string>('');
+  const [roomCreatorDeviceId, setRoomCreatorDeviceId] = useState<string>('');
+  const [roomCreatorId, setRoomCreatorId] = useState<string>('');
 
   // Modals and Feedback
   const [showJoinCodeModal, setShowJoinCodeModal] = useState<boolean>(false);
@@ -91,6 +94,12 @@ export default function App() {
     randomizeNickname 
   } = useDeviceIdentity();
 
+  const isCurrentRoomCreator = Boolean(
+    (roomCreatorDeviceId && roomCreatorDeviceId === deviceId) ||
+    (roomCreatorId && roomCreatorId === userId) ||
+    activeRoomCode === whisperRoomCode
+  );
+
   // Simply back to landing (room stays in inbox)
   const handleLeaveRoom = () => {
     setShowRoomInfo(false);
@@ -98,6 +107,8 @@ export default function App() {
     setActiveRoomCode('');
     setRoomExpiresAt('');
     setActiveRoomName('');
+    setRoomCreatorDeviceId('');
+    setRoomCreatorId('');
     setCurrentScreen('landing');
   };
 
@@ -114,6 +125,29 @@ export default function App() {
       if (deviceId) {
         deleteDeviceSessions(deviceId, [codeToRemove]);
       }
+    }
+  };
+
+  // Explicitly Destroy Room from DB and local sessions (Creator only)
+  const handleDestroyAndRemoveRoom = async () => {
+    const codeToRemove = activeRoomCode;
+    const idToRemove = activeRoomId;
+    handleLeaveRoom();
+
+    if (codeToRemove) {
+      const updated = recentRooms.filter((r) => r.code !== codeToRemove);
+      setRecentRooms(updated);
+      setVerifiedActiveRooms((prev) => prev.filter((r) => r.code !== codeToRemove));
+      saveLocalRecentRooms(updated);
+      if (deviceId) {
+        deleteDeviceSessions(deviceId, [codeToRemove]);
+      }
+    }
+
+    if (idToRemove && codeToRemove) {
+      try {
+        await deleteRoomPermanently(idToRemove, codeToRemove);
+      } catch (e) {}
     }
   };
 
@@ -248,7 +282,14 @@ export default function App() {
       return;
     }
 
-    // Check if the room link is paused
+    // If joining whisper room code, ensure created in DB
+    if (cleanCode === whisperRoomCode.toLowerCase()) {
+      try {
+        await createRoomInDB(whisperRoomCode, undefined, deviceId, userId);
+      } catch (e) {}
+    }
+
+    // Check if the room link is paused locally
     const paused = await getPausedRoomCodes();
     if (paused.includes(cleanCode)) {
       Alert.alert(
@@ -265,12 +306,14 @@ export default function App() {
       setActiveRoomCode(room.code);
       setActiveRoomName(room.resolvedName);
       setRoomExpiresAt(room.expires_at);
+      setRoomCreatorDeviceId(room.creator_device_id || '');
+      setRoomCreatorId(room.creator_id || '');
       saveRecentRoom(room.code, room.resolvedName);
       setShowJoinCodeModal(false);
       setRoomCodeInput('');
       setCurrentScreen('chat-room');
     } catch (err: any) {
-      Alert.alert('Room Not Found', err.message || 'Could not find that room. Make sure the code is exact.');
+      Alert.alert('Unable to Join', err.message || 'Could not find that room. Make sure the code is exact.');
     } finally {
       setLoading(false);
     }
@@ -345,21 +388,27 @@ export default function App() {
 
     setWhisperRoomCode(newCode);
     setActiveRoomCode(newCode);
+    setRoomCreatorDeviceId(deviceId);
+    setRoomCreatorId(userId);
     setCustomRoomNameInput('');
     saveRecentRoom(newCode);
     setShowCreatedModal(true);
 
     try {
-      await createRoomInDB(newCode);
-    } catch (e) {}
+      await createRoomInDB(newCode, undefined, deviceId, userId);
+    } catch (e) {
+      console.warn('createRoomInDB warning on new whisper room:', e);
+    }
   };
 
   const handleUniversalShare = async () => {
     const targetCode = activeRoomCode || whisperRoomCode;
     try {
-      await createRoomInDB(targetCode);
+      await createRoomInDB(targetCode, undefined, deviceId, userId);
       saveRecentRoom(targetCode);
-    } catch (e) {}
+    } catch (e) {
+      console.warn('createRoomInDB warning on universal share:', e);
+    }
     await shareRoomLink(targetCode);
   };
 
@@ -494,10 +543,13 @@ export default function App() {
             roomName={activeRoomName}
             setRoomName={setActiveRoomName}
             userId={userId}
+            deviceId={deviceId}
             userNickname={userNickname}
             timeRemaining={timeRemaining}
+            isCreator={isCurrentRoomCreator}
             onBack={handleLeaveRoom}
             onLeaveRoom={handleLeaveAndRemoveRoom}
+            onDestroyRoom={handleDestroyAndRemoveRoom}
             showRoomInfo={showRoomInfo}
             setShowRoomInfo={setShowRoomInfo}
           />
