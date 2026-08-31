@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MessageItem } from '../types';
+import { MessageItem, ActiveRoomDetail } from '../types';
 import { Colors } from '../constants/theme';
 import { ChatHeader } from '../components/chat/ChatHeader';
 import { MessageList } from '../components/chat/MessageList';
@@ -12,15 +13,21 @@ import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useImagePicker } from '../hooks/useImagePicker';
 import {
-  fetchRoomMessages,
-  sendEncryptedMessage,
+  useRoomMessages,
+  useSendMessageMutation,
+  useLoadEarlierMessagesMutation,
+  messageKeys,
+} from '../hooks/queries/useMessagesQuery';
+import { useRenameRoomMutation } from '../hooks/queries/useRoomQuery';
+import { inboxKeys } from '../hooks/queries/useInboxQuery';
+import { setRoomLastRead } from '../services/storage';
+import {
   subscribeToRoomMessages,
   generateClientUUID,
   sendSystemJoinMessage,
 } from '../api/messages';
 import {
   subscribeToRoomMeta,
-  renameRoomInDB,
   broadcastKickUser,
   subscribeToRoomActions,
   deleteRoomPermanently,
@@ -59,17 +66,43 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   showRoomInfo,
   setShowRoomInfo,
 }) => {
-  const [messages, setMessages] = useState<MessageItem[]>([]);
+  const queryClient = useQueryClient();
   const [inputText, setInputText] = useState<string>('');
   const [roomNameInputText, setRoomNameInputText] = useState<string>('');
-  const [participantsCount, setParticipantsCount] = useState<number>(1);
   const [showStickers, setShowStickers] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
-  const [hasEarlierMessages, setHasEarlierMessages] = useState<boolean>(false);
-  const [loadingEarlier, setLoadingEarlier] = useState<boolean>(false);
+  const [hasEarlierMessages, setHasEarlierMessages] = useState<boolean>(true);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const { playingAudioId, playAudio, stopAudio } = useAudioPlayer();
+
+  // TanStack Query hooks for messages and mutations
+  const {
+    data: messages = [],
+    isLoading: isLoadingMessages,
+    isRefetching,
+    refetch: refetchMessages,
+  } = useRoomMessages(roomId, roomCode);
+  const { mutateAsync: sendMessageMutation } = useSendMessageMutation();
+  const { mutateAsync: loadEarlierMutation, isPending: loadingEarlier } = useLoadEarlierMessagesMutation();
+  const { mutateAsync: renameRoomMutation } = useRenameRoomMutation(deviceId);
+
+  const handleRefresh = async () => {
+    await refetchMessages();
+  };
+
+  // Compute unique human participants
+  const myCleanName = (userNickname || '').replace(/^@+/, '').trim().toLowerCase();
+  const uniqueParticipants = new Set<string>();
+  for (const m of messages) {
+    if (!m.is_system && m.sender_id !== '__system__' && m.sender_name !== 'System') {
+      const cleanSender = (m.sender_name || m.sender_id).replace(/^@+/, '').trim().toLowerCase();
+      if (cleanSender && cleanSender !== myCleanName && m.sender_id !== userId) {
+        uniqueParticipants.add(cleanSender);
+      }
+    }
+  }
+  const participantsCount = uniqueParticipants.size + 1;
 
   // Scroll to bottom helper
   const scrollToBottom = (delay: number = 50) => {
@@ -78,56 +111,69 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     }, delay);
   };
 
-  // Load initial 20 most recent messages, send join announcement (once per room session), and subscribe to real-time events
+  // Helper to mark current room as read both locally and in query cache
+  const markActiveRoomRead = () => {
+    if (roomCode) {
+      setRoomLastRead(roomCode, Date.now());
+      if (deviceId) {
+        queryClient.setQueryData<ActiveRoomDetail[]>(
+          inboxKeys.byDevice(deviceId),
+          (old = []) =>
+            old.map((r) =>
+              r.code.toLowerCase() === roomCode.toLowerCase()
+                ? { ...r, hasUnread: false }
+                : r
+            )
+        );
+      }
+    }
+  };
+
+  // Scroll to bottom and mark room read on initial message load
+  useEffect(() => {
+    if (messages.length > 0) {
+      markActiveRoomRead();
+      scrollToBottom(100);
+      if (messages.length < 20) {
+        setHasEarlierMessages(false);
+      }
+    }
+  }, [roomId, messages.length === 0]);
+
+  // System Join Announcement & Real-Time subscriptions
   useEffect(() => {
     if (!roomId) return;
+    markActiveRoomRead();
 
-    fetchRoomMessages(roomId, roomCode, 20)
-      .then(async (loadedMessages) => {
-        setMessages(loadedMessages);
-        setHasEarlierMessages(loadedMessages.length >= 20);
+    // Send system announcement once per room session
+    const checkAnnouncement = async () => {
+      const announceKey = `vailchat_announcement_sent_${roomId}_${userId}`;
+      const alreadyAnnounced = await AsyncStorage.getItem(announceKey);
+      if (!alreadyAnnounced) {
+        await AsyncStorage.setItem(announceKey, 'true');
+        await sendSystemJoinMessage(roomId, roomCode, userNickname, isCreator);
+      }
+    };
+    checkAnnouncement();
 
-        const humanParticipants = new Set(
-          loadedMessages
-            .filter((m) => !m.is_system && m.sender_id !== '__system__' && m.sender_name !== 'System')
-            .map((m) => m.sender_id)
-        );
-        humanParticipants.add(userId);
-        setParticipantsCount(humanParticipants.size);
-        scrollToBottom(100);
-
-        // Check if user has already announced in this room
-        const announceKey = `vailchat_announcement_sent_${roomId}_${userId}`;
-        const alreadyAnnounced = await AsyncStorage.getItem(announceKey);
-        if (!alreadyAnnounced) {
-          await AsyncStorage.setItem(announceKey, 'true');
-          await sendSystemJoinMessage(roomId, roomCode, userNickname, isCreator);
-        }
-      })
-      .catch((err) => console.error('Failed to load messages:', err));
-
+    // Subscribe to incoming messages and directly update TanStack Query cache (Zero duplicate DB queries)
     const unsubscribeMessages = subscribeToRoomMessages(roomId, roomCode, (newMsg) => {
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === newMsg.id)) {
-          return prev;
+      markActiveRoomRead();
+      queryClient.setQueryData<MessageItem[]>(messageKeys.room(roomId), (old = []) => {
+        if (old.some((m) => m.id === newMsg.id)) {
+          return old;
         }
-        const nextList = [...prev, newMsg];
-        const humanParticipants = new Set(
-          nextList
-            .filter((m) => !m.is_system && m.sender_id !== '__system__' && m.sender_name !== 'System')
-            .map((m) => m.sender_id)
-        );
-        humanParticipants.add(userId);
-        setParticipantsCount(humanParticipants.size);
-        scrollToBottom(100);
-        return nextList;
+        return [...old, newMsg];
       });
+      scrollToBottom(100);
     });
 
+    // Subscribe to room meta updates
     const unsubscribeMeta = subscribeToRoomMeta(roomId, roomCode, (newName) => {
       setRoomName(newName);
     });
 
+    // Subscribe to room actions (kick, delete)
     const unsubscribeActions = subscribeToRoomActions(
       roomId,
       (kickedUserId) => {
@@ -151,6 +197,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     );
 
     return () => {
+      markActiveRoomRead();
       unsubscribeMessages();
       unsubscribeMeta();
       unsubscribeActions();
@@ -158,48 +205,35 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     };
   }, [roomId, roomCode]);
 
-  // Load 20 earlier messages on demand
+  // Load earlier messages with TanStack Query mutation
   const handleLoadEarlier = async () => {
     if (loadingEarlier || messages.length === 0) return;
-    setLoadingEarlier(true);
     try {
       const oldestCreatedAt = messages[0].created_at;
-      const earlier = await fetchRoomMessages(roomId, roomCode, 20, oldestCreatedAt);
-      if (earlier.length < 20) {
+      const res = await loadEarlierMutation({
+        roomId,
+        roomCode,
+        beforeCreatedAt: oldestCreatedAt,
+      });
+      if (res.earlier.length < 20) {
         setHasEarlierMessages(false);
       }
-      setMessages((prev) => [...earlier, ...prev]);
     } catch (e) {
       console.warn('Failed to load earlier messages:', e);
-    } finally {
-      setLoadingEarlier(false);
     }
   };
 
-  // Send text message
+  // Send text message with optimistic update
   const handleSendMessage = async () => {
     const text = inputText.trim();
     if (!text) return;
 
-    setInputText('');
     const msgId = generateClientUUID();
-
-    const optimisticMsg: MessageItem = {
-      id: msgId,
-      sender_id: userId,
-      sender_name: userNickname,
-      content: text,
-      is_image: false,
-      is_voice: false,
-      is_sticker: false,
-      created_at: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, optimisticMsg]);
+    setInputText('');
     scrollToBottom();
 
     try {
-      await sendEncryptedMessage({
+      await sendMessageMutation({
         id: msgId,
         roomId,
         roomCode,
@@ -208,7 +242,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         rawContent: text,
       });
     } catch (err) {
-      setMessages((prev) => prev.filter((m) => m.id !== msgId));
       Alert.alert('Error', 'Failed to send message.');
     }
   };
@@ -216,22 +249,9 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   // Send photo
   const { selectImage, pickingImage } = useImagePicker(async (base64Image) => {
     const msgId = generateClientUUID();
-    const optimisticMsg: MessageItem = {
-      id: msgId,
-      sender_id: userId,
-      sender_name: userNickname,
-      content: base64Image,
-      is_image: true,
-      is_voice: false,
-      is_sticker: false,
-      created_at: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, optimisticMsg]);
     scrollToBottom();
-
     try {
-      await sendEncryptedMessage({
+      await sendMessageMutation({
         id: msgId,
         roomId,
         roomCode,
@@ -241,7 +261,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         isImage: true,
       });
     } catch (err) {
-      setMessages((prev) => prev.filter((m) => m.id !== msgId));
       Alert.alert('Error', 'Failed to send image.');
     }
   });
@@ -250,23 +269,9 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   const handleSendSticker = async (stickerUrl: string) => {
     setShowStickers(false);
     const msgId = generateClientUUID();
-
-    const optimisticMsg: MessageItem = {
-      id: msgId,
-      sender_id: userId,
-      sender_name: userNickname,
-      content: stickerUrl,
-      is_image: false,
-      is_voice: false,
-      is_sticker: true,
-      created_at: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, optimisticMsg]);
     scrollToBottom();
-
     try {
-      await sendEncryptedMessage({
+      await sendMessageMutation({
         id: msgId,
         roomId,
         roomCode,
@@ -276,7 +281,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         isSticker: true,
       });
     } catch (err) {
-      setMessages((prev) => prev.filter((m) => m.id !== msgId));
       Alert.alert('Error', 'Failed to send sticker.');
     }
   };
@@ -285,22 +289,9 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   const { isRecording, isProcessing: recordingProcessing, startRecording, stopRecording } = useAudioRecorder(
     async (base64AudioData) => {
       const msgId = generateClientUUID();
-      const optimisticMsg: MessageItem = {
-        id: msgId,
-        sender_id: userId,
-        sender_name: userNickname,
-        content: base64AudioData,
-        is_image: false,
-        is_voice: true,
-        is_sticker: false,
-        created_at: new Date().toISOString(),
-      };
-
-      setMessages((prev) => [...prev, optimisticMsg]);
       scrollToBottom();
-
       try {
-        await sendEncryptedMessage({
+        await sendMessageMutation({
           id: msgId,
           roomId,
           roomCode,
@@ -310,7 +301,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
           isVoice: true,
         });
       } catch (err) {
-        setMessages((prev) => prev.filter((m) => m.id !== msgId));
         Alert.alert('Error', 'Failed to send voice note.');
       }
     }
@@ -321,7 +311,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     if (!isCreator) return;
     try {
       setLoading(true);
-      await renameRoomInDB(roomId, roomCode, newName);
+      await renameRoomMutation({ roomId, roomCode, newName });
       setRoomName(newName);
       Alert.alert('Success', 'Room renamed successfully!');
     } catch (e) {
@@ -336,7 +326,10 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     if (!isCreator) return;
     try {
       await broadcastKickUser(roomId, participantId);
-      setMessages((prev) => prev.filter((m) => m.sender_id !== participantId));
+      // Remove locally from messages query cache
+      queryClient.setQueryData<MessageItem[]>(messageKeys.room(roomId), (old = []) =>
+        old.filter((m) => m.sender_id !== participantId)
+      );
       Alert.alert('User Kicked', `${participantName} was removed from the room.`);
     } catch (e) {
       Alert.alert('Error', 'Failed to kick user.');
@@ -379,7 +372,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         }}
       />
 
-      {/* Messages Stream with 20-Message Pagination */}
+      {/* Messages Stream with 20-Message Pagination & Pull to Refresh */}
       <MessageList
         scrollViewRef={scrollViewRef}
         messages={messages}
@@ -390,6 +383,8 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         hasEarlierMessages={hasEarlierMessages}
         loadingEarlier={loadingEarlier}
         onLoadEarlier={handleLoadEarlier}
+        refreshing={isRefetching}
+        onRefresh={handleRefresh}
       />
 
       {/* Input Bar */}
@@ -403,7 +398,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         onStopRecording={stopRecording}
         showStickers={showStickers}
         setShowStickers={setShowStickers}
-        loading={loading || pickingImage || recordingProcessing}
+        loading={loading || pickingImage || recordingProcessing || isLoadingMessages}
       />
 
       {/* Stickers Panel */}

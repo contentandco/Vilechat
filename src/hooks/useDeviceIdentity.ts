@@ -1,55 +1,25 @@
-import { useState, useEffect } from 'react';
-import { generateAnonymousName } from '../lib/encryption';
-import { getOrInitDeviceId, getStoredUsername, saveStoredUsername, getStoredAvatar, saveStoredAvatar } from '../services/storage';
+import { useEffect } from 'react';
+import { useAppStore } from '../store/useAppStore';
 
+/**
+ * Hook to access and manage device identity powered by the global Zustand store.
+ */
 export function useDeviceIdentity() {
-  const [deviceId, setDeviceId] = useState<string>('');
-  const [userId, setUserId] = useState<string>('');
-  const [userNickname, setUserNicknameState] = useState<string>('');
-  const [userAvatar, setUserAvatarState] = useState<string>('');
+  const deviceId = useAppStore((state) => state.deviceId);
+  const userId = useAppStore((state) => state.userId);
+  const userNickname = useAppStore((state) => state.userNickname);
+  const userAvatar = useAppStore((state) => state.userAvatar);
+  const isIdentityLoaded = useAppStore((state) => state.isIdentityLoaded);
+  const initIdentity = useAppStore((state) => state.initIdentity);
+  const setUserNickname = useAppStore((state) => state.setUserNickname);
+  const setUserAvatar = useAppStore((state) => state.setUserAvatar);
+  const randomizeNickname = useAppStore((state) => state.randomizeNickname);
 
   useEffect(() => {
-    setUserId('user_' + Math.random().toString(36).substring(2, 11));
-
-    getOrInitDeviceId().then((id) => {
-      setDeviceId(id);
-    });
-
-    getStoredUsername().then((storedName) => {
-      if (storedName && storedName.trim()) {
-        setUserNicknameState(storedName.trim());
-      } else {
-        const generated = generateAnonymousName();
-        setUserNicknameState(generated);
-      }
-    });
-
-    getStoredAvatar().then((storedAvatar) => {
-      if (storedAvatar && storedAvatar.trim()) {
-        setUserAvatarState(storedAvatar.trim());
-      }
-    });
-  }, []);
-
-  const setUserNickname = (newName: string) => {
-    setUserNicknameState(newName);
-    if (newName) {
-      saveStoredUsername(newName);
+    if (!isIdentityLoaded) {
+      initIdentity();
     }
-  };
-
-  const setUserAvatar = (newAvatar: string) => {
-    setUserAvatarState(newAvatar);
-    if (newAvatar) {
-      saveStoredAvatar(newAvatar);
-    }
-  };
-
-  const randomizeNickname = () => {
-    const newName = generateAnonymousName();
-    setUserNickname(newName);
-    return newName;
-  };
+  }, [isIdentityLoaded, initIdentity]);
 
   return {
     deviceId,
@@ -59,5 +29,6 @@ export function useDeviceIdentity() {
     setUserNickname,
     setUserAvatar,
     randomizeNickname,
+    isIdentityLoaded,
   };
 }

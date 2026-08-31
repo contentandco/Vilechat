@@ -1,5 +1,13 @@
 import React from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { LockKeyIcon } from '@hugeicons/core-free-icons';
 import { MessageItem } from '../../types';
@@ -16,6 +24,8 @@ interface MessageListProps {
   hasEarlierMessages?: boolean;
   loadingEarlier?: boolean;
   onLoadEarlier?: () => void;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -28,6 +38,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   hasEarlierMessages = false,
   loadingEarlier = false,
   onLoadEarlier,
+  refreshing = false,
+  onRefresh,
 }) => {
   return (
     <ScrollView
@@ -36,6 +48,17 @@ export const MessageList: React.FC<MessageListProps> = ({
       contentContainerStyle={styles.messagesListContent}
       onScrollBeginDrag={onScrollBeginDrag}
       keyboardShouldPersistTaps="handled"
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+            progressBackgroundColor={Colors.cardBackground}
+          />
+        ) : undefined
+      }
     >
       {/* Load earlier messages banner (Pagination 20) */}
       {hasEarlierMessages && (

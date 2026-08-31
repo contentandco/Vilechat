@@ -3,6 +3,7 @@ import { RecentRoom } from '../types';
 
 const STORAGE_KEYS = {
   DEVICE_ID: 'vailchat_device_id',
+  USER_ID: 'vailchat_user_id',
   RECENT_ROOMS: 'vailchat_recent_rooms',
   USERNAME: 'vailchat_username',
   AVATAR: 'vailchat_avatar',
@@ -97,6 +98,23 @@ export async function getOrInitDeviceId(): Promise<string> {
     return newId;
   } catch (e) {
     return generateUniqueDeviceId();
+  }
+}
+
+/**
+ * Retrieves the persistent user ID or generates and saves a new one.
+ */
+export async function getOrInitUserId(): Promise<string> {
+  try {
+    const storedId = await safeGetItem(STORAGE_KEYS.USER_ID);
+    if (storedId) {
+      return storedId;
+    }
+    const newId = 'user_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36);
+    await safeSetItem(STORAGE_KEYS.USER_ID, newId);
+    return newId;
+  } catch (e) {
+    return 'user_' + Math.random().toString(36).substring(2, 11);
   }
 }
 

@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+  Text,
+  RefreshControl,
+} from 'react-native';
 import { HomeTab, ActiveRoomDetail } from '../types';
 import { Colors } from '../constants/theme';
 import { TopNavBar } from '../components/common/TopNavBar';
-import { NglCard } from '../components/whisper/NglCard';
+import { WhisperCard } from '../components/whisper/WhisperCard';
 import { ShareDrawer } from '../components/whisper/ShareDrawer';
 import { InboxHeader } from '../components/inbox/InboxHeader';
 import { InboxItem } from '../components/inbox/InboxItem';
@@ -36,6 +44,8 @@ interface LandingScreenProps {
   onJoinRoom: (code: string) => void;
   onOpenJoinCodeModal: () => void;
   onOpenSettings: () => void;
+  onRefreshInbox?: () => void;
+  isRefetchingInbox?: boolean;
 }
 
 export const LandingScreen: React.FC<LandingScreenProps> = ({
@@ -64,6 +74,8 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   onJoinRoom,
   onOpenJoinCodeModal,
   onOpenSettings,
+  onRefreshInbox,
+  isRefetchingInbox = false,
 }) => {
   const currentRoomCode = activeRoomCode || whisperRoomCode;
   const [inboxPage, setInboxPage] = useState<number>(1);
@@ -90,7 +102,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           showsVerticalScrollIndicator={false} 
           keyboardShouldPersistTaps="handled"
         >
-          <NglCard
+          <WhisperCard
             userAvatar={userAvatar}
             themeIndex={themeIndex}
             promptIndex={promptIndex}
@@ -109,13 +121,24 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
         </ScrollView>
       )}
 
-      {/* Tab 2: Inbox Stream (10-Item Pagination) */}
+      {/* Tab 2: Inbox Stream (10-Item Pagination & Pull-to-Refresh) */}
       {activeTab === 'inbox' && (
         <View style={styles.inboxWrapper}>
           <ScrollView 
             contentContainerStyle={styles.inboxScroll} 
             showsVerticalScrollIndicator={false} 
             keyboardShouldPersistTaps="handled"
+            refreshControl={
+              onRefreshInbox ? (
+                <RefreshControl
+                  refreshing={isRefetchingInbox}
+                  onRefresh={onRefreshInbox}
+                  tintColor={Colors.primary}
+                  colors={[Colors.primary]}
+                  progressBackgroundColor={Colors.cardBackground}
+                />
+              ) : undefined
+            }
           >
             <View style={styles.historyContainer}>
               <InboxHeader

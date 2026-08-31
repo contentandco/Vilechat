@@ -11,11 +11,11 @@ export const PROMPTS: string[] = [
 ];
 
 export const CARD_THEMES: CardTheme[] = [
-  { id: 'ngl-brown', bg: '#3C291E', cardBorder: '#4E3628', accent: '#D4A373' },
-  { id: 'ngl-mocha', bg: '#483327', cardBorder: '#5C4132', accent: '#E0A96D' },
-  { id: 'ngl-espresso', bg: '#2B1C14', cardBorder: '#3C281D', accent: '#E7B892' },
-  { id: 'ngl-velvet', bg: '#2C1B33', cardBorder: '#3E2748', accent: '#C77DFF' },
-  { id: 'ngl-obsidian', bg: '#1C2430', cardBorder: '#293545', accent: '#00B4D8' },
+  { id: 'vail-brown', bg: '#3C291E', cardBorder: '#4E3628', accent: '#D4A373' },
+  { id: 'vail-mocha', bg: '#483327', cardBorder: '#5C4132', accent: '#E0A96D' },
+  { id: 'vail-espresso', bg: '#2B1C14', cardBorder: '#3C281D', accent: '#E7B892' },
+  { id: 'vail-velvet', bg: '#2C1B33', cardBorder: '#3E2748', accent: '#C77DFF' },
+  { id: 'vail-obsidian', bg: '#1C2430', cardBorder: '#293545', accent: '#00B4D8' },
 ];
 
 export const STICKERS: StickerItem[] = [

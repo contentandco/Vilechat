@@ -52,11 +52,11 @@ export const ShareDrawer: React.FC<ShareDrawerProps> = ({
       <Text style={[styles.shareStepTitle, styles.step2Title]}>Step 2: Share link anywhere</Text>
       
       <TouchableOpacity 
-        style={styles.nglShareBtn} 
+        style={styles.mainShareBtn} 
         onPress={onUniversalShare} 
         activeOpacity={0.85}
       >
-        <Text style={styles.nglShareBtnText}>Share!</Text>
+        <Text style={styles.mainShareBtnText}>Share!</Text>
       </TouchableOpacity>
     </View>
   );
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   step1CreateBtnTextSuccess: {
     color: Colors.primary,
   },
-  nglShareBtn: {
+  mainShareBtn: {
     backgroundColor: Colors.primary,
     width: '100%',
     paddingVertical: 18,
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
-  nglShareBtnText: {
+  mainShareBtnText: {
     color: Colors.textWhite,
     fontSize: 18,
     fontWeight: '700',

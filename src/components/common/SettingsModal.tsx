@@ -10,11 +10,15 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
   Notification01Icon,
+  Mail01Icon,
+  Add01Icon,
+  FavouriteIcon,
   HandIcon,
   HelpCircleIcon,
   Shield01Icon,
@@ -36,6 +40,12 @@ interface SettingsModalProps {
   currentWhisperCode?: string;
 }
 
+const NOTIF_STORAGE_KEYS = {
+  REMINDERS: 'vailchat_notif_reminders',
+  NEW_MESSAGES: 'vailchat_notif_new_messages',
+  TEAM_VAILCHAT: 'vailchat_notif_team_vailchat',
+};
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   visible,
   onClose,
@@ -43,20 +53,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   activeRooms = [],
   currentWhisperCode = '',
 }) => {
-  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
+  const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
+  const [remindersEnabled, setRemindersEnabled] = useState<boolean>(true);
+  const [newMessagesEnabled, setNewMessagesEnabled] = useState<boolean>(true);
+  const [teamVailchatEnabled, setTeamVailchatEnabled] = useState<boolean>(true);
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [showPauseLinkModal, setShowPauseLinkModal] = useState<boolean>(false);
   const [pausedCodes, setPausedCodes] = useState<string[]>([]);
 
-  // Load paused codes on mount
+  // Load paused codes and notification settings on mount
   useEffect(() => {
     if (visible) {
       getPausedRoomCodes().then((codes) => setPausedCodes(codes));
+
+      AsyncStorage.multiGet([
+        NOTIF_STORAGE_KEYS.REMINDERS,
+        NOTIF_STORAGE_KEYS.NEW_MESSAGES,
+        NOTIF_STORAGE_KEYS.TEAM_VAILCHAT,
+      ]).then((results) => {
+        results.forEach(([key, val]) => {
+          if (val !== null) {
+            const isEnabled = val === 'true';
+            if (key === NOTIF_STORAGE_KEYS.REMINDERS) setRemindersEnabled(isEnabled);
+            if (key === NOTIF_STORAGE_KEYS.NEW_MESSAGES) setNewMessagesEnabled(isEnabled);
+            if (key === NOTIF_STORAGE_KEYS.TEAM_VAILCHAT) setTeamVailchatEnabled(isEnabled);
+          }
+        });
+      }).catch(() => {});
     }
   }, [visible]);
 
-  const handleToggleNotifications = () => {
-    setNotificationsEnabled((prev) => !prev);
+  const handleToggleReminders = (value: boolean) => {
+    setRemindersEnabled(value);
+    AsyncStorage.setItem(NOTIF_STORAGE_KEYS.REMINDERS, String(value)).catch(() => {});
+  };
+
+  const handleToggleNewMessages = (value: boolean) => {
+    setNewMessagesEnabled(value);
+    AsyncStorage.setItem(NOTIF_STORAGE_KEYS.NEW_MESSAGES, String(value)).catch(() => {});
+  };
+
+  const handleToggleTeamVailchat = (value: boolean) => {
+    setTeamVailchatEnabled(value);
+    AsyncStorage.setItem(NOTIF_STORAGE_KEYS.TEAM_VAILCHAT, String(value)).catch(() => {});
   };
 
   const togglePauseRoom = async (code: string) => {
@@ -150,7 +190,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <View style={styles.cardGroup}>
             <TouchableOpacity 
               style={styles.rowItem} 
-              onPress={handleToggleNotifications}
+              onPress={() => setShowNotificationsModal(true)}
               activeOpacity={0.75}
             >
               <View style={styles.rowLeft}>
@@ -159,12 +199,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </View>
                 <Text style={styles.rowLabel}>Notifications</Text>
               </View>
-              <Switch
-                value={notificationsEnabled}
-                onValueChange={setNotificationsEnabled}
-                trackColor={{ false: '#2D3A50', true: Colors.primary }}
-                thumbColor="#FFFFFF"
-              />
+              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -288,6 +323,101 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </View>
         </ScrollView>
 
+        {/* Modal: Notifications Detail View */}
+        <Modal
+          visible={showNotificationsModal}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setShowNotificationsModal(false)}
+        >
+          <View style={styles.notifContainer}>
+            {/* Notifications Header */}
+            <View style={styles.notifHeader}>
+              <TouchableOpacity 
+                style={styles.backBtn} 
+                onPress={() => setShowNotificationsModal(false)} 
+                activeOpacity={0.7}
+              >
+                <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={Colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.notifHeaderTitle}>Notifications</Text>
+              <View style={styles.headerRightPlaceholder} />
+            </View>
+
+            <ScrollView 
+              style={styles.notifScroll} 
+              contentContainerStyle={styles.notifScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Notification Options Card */}
+              <View style={styles.notifCard}>
+                {/* 1. Reminders to post */}
+                <View style={styles.notifRow}>
+                  <View style={styles.notifLeft}>
+                    <View style={styles.notifIconCircle}>
+                      <HugeiconsIcon icon={Add01Icon} size={18} color={Colors.textPrimary} />
+                    </View>
+                    <View style={styles.notifTextContainer}>
+                      <Text style={styles.notifTitle}>Reminders to post</Text>
+                      <Text style={styles.notifSubtitle}>Share your link 😛 Tap here</Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={remindersEnabled}
+                    onValueChange={handleToggleReminders}
+                    trackColor={{ false: '#2D3A50', true: Colors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.notifSeparator} />
+
+                {/* 2. New messages */}
+                <View style={styles.notifRow}>
+                  <View style={styles.notifLeft}>
+                    <View style={styles.notifIconCircle}>
+                      <HugeiconsIcon icon={Mail01Icon} size={18} color={Colors.textPrimary} />
+                    </View>
+                    <View style={styles.notifTextContainer}>
+                      <Text style={styles.notifTitle}>New messages</Text>
+                      <Text style={styles.notifSubtitle}>You have a new message! Tap to open</Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={newMessagesEnabled}
+                    onValueChange={handleToggleNewMessages}
+                    trackColor={{ false: '#2D3A50', true: Colors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.notifSeparator} />
+
+                {/* 3. Team Vailchat messages */}
+                <View style={styles.notifRow}>
+                  <View style={styles.notifLeft}>
+                    <View style={styles.notifIconCircle}>
+                      <HugeiconsIcon icon={FavouriteIcon} size={18} color={Colors.textPrimary} />
+                    </View>
+                    <View style={styles.notifTextContainer}>
+                      <Text style={styles.notifTitle}>Team Vailchat messages</Text>
+                      <Text style={styles.notifSubtitle}>
+                        Vailchat will occasionally send messages to make your Q&A game more fun!
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={teamVailchatEnabled}
+                    onValueChange={handleToggleTeamVailchat}
+                    trackColor={{ false: '#2D3A50', true: Colors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </Modal>
+
         {/* Modal: Pause My Link Manager */}
         <Modal
           visible={showPauseLinkModal}
@@ -352,23 +482,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <View style={styles.confirmCard}>
               <Text style={styles.confirmTitle}>Are you sure?</Text>
               <Text style={styles.confirmSubtitle}>
-                If you delete your account, you will lose access to your username and all messages
+                Deleting your account will delete all your inbox data and active sessions. This action cannot be undone.
               </Text>
               <View style={styles.confirmBtnRow}>
                 <TouchableOpacity
                   style={styles.confirmCancelBtn}
                   onPress={() => setShowDeleteConfirm(false)}
-                  activeOpacity={0.85}
+                  activeOpacity={0.7}
                 >
                   <Text style={styles.confirmCancelText}>Cancel</Text>
                 </TouchableOpacity>
-
                 <TouchableOpacity
                   style={styles.confirmDeleteBtn}
                   onPress={handleExecuteDelete}
-                  activeOpacity={0.85}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.confirmDeleteText}>Delete</Text>
+                  <Text style={styles.confirmDeleteText}>Delete Account</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -383,28 +512,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingTop: Platform.OS === 'ios' ? 54 : 24,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 54 : 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: Colors.border,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    padding: 8,
   },
   headerTitle: {
-    color: Colors.textPrimary,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    textAlign: 'center',
+    color: Colors.textPrimary,
   },
   headerRightPlaceholder: {
     width: 40,
@@ -413,26 +538,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 20,
     paddingBottom: 40,
   },
   sectionHeader: {
-    marginTop: 20,
-    marginBottom: 10,
+    marginBottom: 8,
+    marginTop: 16,
     paddingHorizontal: 4,
   },
   sectionTitle: {
-    color: Colors.textSecondary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    letterSpacing: -0.2,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   cardGroup: {
-    backgroundColor: '#182740',
-    borderRadius: 22,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#243656',
+    borderColor: Colors.border,
     overflow: 'hidden',
   },
   rowItem: {
@@ -445,56 +571,56 @@ const styles = StyleSheet.create({
   rowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
     flex: 1,
+    marginRight: 12,
   },
   iconCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#243656',
+    backgroundColor: Colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 14,
   },
   deleteIconCircle: {
-    backgroundColor: 'rgba(255, 51, 102, 0.15)',
+    backgroundColor: 'rgba(255, 59, 105, 0.15)',
   },
   rowLabel: {
-    color: Colors.textPrimary,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
+    color: Colors.textPrimary,
   },
   pausedCountSubtitle: {
-    color: Colors.primary,
     fontSize: 12,
-    fontWeight: '500',
+    color: Colors.primary,
+    fontWeight: '600',
     marginTop: 2,
   },
   separator: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: Colors.border,
     marginLeft: 66,
   },
   pauseOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'flex-end',
   },
   pauseContainer: {
     backgroundColor: Colors.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    height: '75%',
-    borderWidth: 1,
-    borderColor: Colors.border,
     paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingTop: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    maxHeight: '80%',
   },
   pauseHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
   pauseTitle: {
     color: Colors.textPrimary,
@@ -640,5 +766,82 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  // Notifications View Styles
+  notifContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  notifHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 54 : 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  notifHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+  notifScroll: {
+    flex: 1,
+  },
+  notifScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  notifCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 24,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  notifRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+  },
+  notifLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  notifIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.surfaceMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  notifTextContainer: {
+    flex: 1,
+  },
+  notifTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 3,
+  },
+  notifSubtitle: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    lineHeight: 18,
+    fontWeight: '400',
+  },
+  notifSeparator: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginLeft: 52,
   },
 });

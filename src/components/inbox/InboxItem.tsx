@@ -24,7 +24,7 @@ export const InboxItem: React.FC<InboxItemProps> = ({
 
   return (
     <TouchableOpacity
-      style={[styles.nglInboxItem, isInboxEditMode && isSelected && styles.nglInboxItemSelected]}
+      style={[styles.inboxItem, isInboxEditMode && isSelected && styles.inboxItemSelected]}
       onPress={onPress}
       activeOpacity={0.75}
     >
@@ -36,19 +36,19 @@ export const InboxItem: React.FC<InboxItemProps> = ({
       )}
 
       {/* Left Envelope Avatar */}
-      <View style={[styles.nglInboxAvatar, isUnread ? styles.nglAvatarUnread : styles.nglAvatarDark]}>
-        <Text style={styles.nglEnvelopeIcon}>💌</Text>
+      <View style={[styles.inboxAvatar, isUnread ? styles.avatarUnread : styles.avatarDark]}>
+        <Text style={styles.envelopeIcon}>💌</Text>
       </View>
 
       {/* Middle Details */}
-      <View style={styles.nglInboxInfo}>
+      <View style={styles.inboxInfo}>
         <Text 
-          style={[styles.nglInboxMsgTitle, isUnread ? styles.nglMsgTitleUnread : styles.nglMsgTitleRead]}
+          style={[styles.inboxMsgTitle, isUnread ? styles.msgTitleUnread : styles.msgTitleRead]}
           numberOfLines={1}
         >
           {displayName}
         </Text>
-        <Text style={styles.nglInboxTimeText}>
+        <Text style={styles.inboxTimeText}>
           {formatTimeLeft(room.expires_at)}
         </Text>
       </View>
@@ -69,7 +69,7 @@ export const InboxItem: React.FC<InboxItemProps> = ({
 };
 
 const styles = StyleSheet.create({
-  nglInboxItem: {
+  inboxItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.04)',
   },
-  nglInboxItemSelected: {
+  inboxItemSelected: {
     backgroundColor: 'rgba(255, 59, 105, 0.06)',
     borderRadius: 16,
     paddingHorizontal: 8,
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
   },
-  nglInboxAvatar: {
+  inboxAvatar: {
     width: 58,
     height: 58,
     borderRadius: 29,
@@ -109,37 +109,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 16,
   },
-  nglAvatarUnread: {
+  avatarUnread: {
     backgroundColor: 'rgba(255, 51, 85, 0.2)',
     borderWidth: 2,
     borderColor: '#FF3355',
   },
-  nglAvatarDark: {
+  avatarDark: {
     backgroundColor: Colors.surfaceMuted,
     borderWidth: 1.5,
     borderColor: Colors.borderLight,
   },
-  nglEnvelopeIcon: {
+  envelopeIcon: {
     fontSize: 26,
   },
-  nglInboxInfo: {
+  inboxInfo: {
     flex: 1,
     justifyContent: 'center',
   },
-  nglInboxMsgTitle: {
+  inboxMsgTitle: {
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
     letterSpacing: -0.2,
   },
-  nglMsgTitleUnread: {
+  msgTitleUnread: {
     color: '#FF3355',
     fontWeight: '800',
   },
-  nglMsgTitleRead: {
+  msgTitleRead: {
     color: Colors.textPrimary,
   },
-  nglInboxTimeText: {
+  inboxTimeText: {
     color: Colors.textMuted,
     fontSize: 13,
     fontWeight: '500',

@@ -155,11 +155,33 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
     );
   };
 
-  // Filter out system messages so "System" is never listed as a human participant
-  const otherParticipants = messages
-    .filter((m) => !m.is_system && m.sender_id !== '__system__' && m.sender_name !== 'System' && m.sender_id !== userId)
-    .filter((m, i, self) => self.findIndex((t) => t.sender_id === m.sender_id) === i);
+  // Deduplicate participants:
+  // 1. Exclude system messages
+  // 2. Exclude current user (matches userId or current userNickname)
+  // 3. Deduplicate other members by clean sender_name/sender_id
+  const myCleanName = (userNickname || '').replace(/^@+/, '').trim().toLowerCase();
 
+  const otherParticipantsMap = new Map<string, { id: string; sender_id: string; sender_name: string }>();
+  for (const m of messages) {
+    if (m.is_system || m.sender_id === '__system__' || m.sender_name === 'System') continue;
+
+    const msgSenderName = (m.sender_name || '').replace(/^@+/, '').trim().toLowerCase();
+    // Exclude yourself
+    if (m.sender_id === userId || (myCleanName && msgSenderName === myCleanName)) {
+      continue;
+    }
+
+    const key = msgSenderName || m.sender_id;
+    if (!otherParticipantsMap.has(key)) {
+      otherParticipantsMap.set(key, {
+        id: m.id,
+        sender_id: m.sender_id,
+        sender_name: m.sender_name,
+      });
+    }
+  }
+
+  const otherParticipants = Array.from(otherParticipantsMap.values());
   const totalHumanParticipants = otherParticipants.length + 1;
 
   return (

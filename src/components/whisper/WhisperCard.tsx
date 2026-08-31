@@ -13,7 +13,7 @@ import { PencilEdit02Icon } from '@hugeicons/core-free-icons';
 import { copyRoomCodeToClipboard } from '../../services/share';
 import { CARD_THEMES, PROMPTS } from '../../constants';
 
-interface NglCardProps {
+interface WhisperCardProps {
   themeIndex: number;
   promptIndex: number;
   setPromptIndex: React.Dispatch<React.SetStateAction<number>>;
@@ -22,7 +22,7 @@ interface NglCardProps {
   onRandomizeNickname: () => string;
 }
 
-export const NglCard: React.FC<NglCardProps> = ({
+export const WhisperCard: React.FC<WhisperCardProps> = ({
   themeIndex,
   promptIndex,
   setPromptIndex,
@@ -43,13 +43,13 @@ export const NglCard: React.FC<NglCardProps> = ({
   };
 
   return (
-    <View style={[styles.nglCard, { backgroundColor: currentTheme.bg }]}>
+    <View style={[styles.whisperCard, { backgroundColor: currentTheme.bg }]}>
       {/* User Profile Avatar with Edit Badge */}
-      <View style={styles.nglAvatarContainer}>
-        <View style={styles.nglAvatarCircle}>
+      <View style={styles.avatarContainer}>
+        <View style={styles.avatarCircle}>
           <Image 
             source={userAvatar ? { uri: userAvatar } : require('../../../assets/default_avatar.png')} 
-            style={styles.nglAvatarImg} 
+            style={styles.avatarImg} 
             resizeMode="cover"
           />
         </View>
@@ -86,7 +86,7 @@ export const NglCard: React.FC<NglCardProps> = ({
 };
 
 const styles = StyleSheet.create({
-  nglCard: {
+  whisperCard: {
     borderRadius: 32,
     paddingVertical: 36,
     paddingHorizontal: 22,
@@ -100,12 +100,12 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 16,
   },
-  nglAvatarContainer: {
+  avatarContainer: {
     position: 'relative',
     marginTop: 10,
     marginBottom: 14,
   },
-  nglAvatarCircle: {
+  avatarCircle: {
     width: 74,
     height: 74,
     borderRadius: 37,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  nglAvatarImg: {
+  avatarImg: {
     width: 69,
     height: 69,
     borderRadius: 34.5,

@@ -1,42 +1,49 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, StatusBar, Alert, Clipboard, Platform, ToastAndroid } from 'react-native';
 import { SafeAreaProvider, SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
+import { QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 
+// Query Client & Zustand Store
+import { queryClient } from './src/lib/queryClient';
+import { useAppStore } from './src/store/useAppStore';
+
 // Types and Constants
-import { Screen, HomeTab, RecentRoom, ActiveRoomDetail } from './src/types';
+import { ActiveRoomDetail } from './src/types';
 import { Colors } from './src/constants/theme';
 import { generateRoomCode } from './src/lib/encryption';
 import { supabase } from './src/lib/supabase';
 
 // Services and APIs
 import {
-  getLocalRecentRooms,
-  saveLocalRecentRooms,
-  saveStoredUsername,
-  saveStoredAvatar,
   clearAllUserData,
   getPausedRoomCodes,
   setRoomLastRead,
 } from './src/services/storage';
 import { shareRoomLink } from './src/services/share';
 import {
-  createRoomInDB,
   fetchRoomByCode,
-  verifyActiveRoomsFromDB,
-  syncDeviceSession,
-  fetchDeviceSessions,
-  deleteDeviceSessions,
-  renameRoomByCodeInDB,
   deleteRoomPermanently,
 } from './src/api/rooms';
 import { recordOnboardingVibe } from './src/api/onboarding';
 
-// Custom Hooks
+// Custom Hooks & Query Hooks
 import { useDeviceIdentity } from './src/hooks/useDeviceIdentity';
 import { useRoomTimer } from './src/hooks/useRoomTimer';
 import { useHardwareBack } from './src/hooks/useHardwareBack';
+import {
+  useInboxRooms,
+  useSaveRecentRoomMutation,
+  useDeleteRoomsMutation,
+  useMarkRoomReadMutation,
+  inboxKeys,
+} from './src/hooks/queries/useInboxQuery';
+import {
+  useCreateRoomMutation,
+  useRenameRoomMutation,
+} from './src/hooks/queries/useRoomQuery';
+import { messageKeys } from './src/hooks/queries/useMessagesQuery';
 
 // Screens and Modals
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
@@ -50,55 +57,82 @@ import { JoinCodeModal } from './src/components/common/JoinCodeModal';
 import { RoomCreatedModal } from './src/components/common/RoomCreatedModal';
 import { SettingsModal } from './src/components/common/SettingsModal';
 
-export default function App() {
-  // Navigation and Tab state
-  const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
-  const [activeTab, setActiveTab] = useState<HomeTab>('whisper');
+function MainApp() {
+  const qc = useQueryClient();
+
+  // Zustand Store State & Actions
+  const currentScreen = useAppStore((s) => s.currentScreen);
+  const setCurrentScreen = useAppStore((s) => s.setCurrentScreen);
+  const activeTab = useAppStore((s) => s.activeTab);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
+
+  const activeRoomId = useAppStore((s) => s.activeRoomId);
+  const activeRoomCode = useAppStore((s) => s.activeRoomCode);
+  const activeRoomName = useAppStore((s) => s.activeRoomName);
+  const setActiveRoomName = useAppStore((s) => s.setActiveRoomName);
+  const roomExpiresAt = useAppStore((s) => s.roomExpiresAt);
+  const roomCreatorDeviceId = useAppStore((s) => s.roomCreatorDeviceId);
+  const roomCreatorId = useAppStore((s) => s.roomCreatorId);
+  const enterRoom = useAppStore((s) => s.enterRoom);
+  const leaveRoom = useAppStore((s) => s.leaveRoom);
+
+  const whisperRoomCode = useAppStore((s) => s.whisperRoomCode);
+  const promptIndex = useAppStore((s) => s.promptIndex);
+  const setPromptIndex = useAppStore((s) => s.setPromptIndex);
+  const chosenVibe = useAppStore((s) => s.chosenVibe);
+  const setChosenVibe = useAppStore((s) => s.setChosenVibe);
+  const generateNewWhisperCode = useAppStore((s) => s.generateNewWhisperCode);
+
+  const showJoinCodeModal = useAppStore((s) => s.showJoinCodeModal);
+  const setShowJoinCodeModal = useAppStore((s) => s.setShowJoinCodeModal);
+  const showCreatedModal = useAppStore((s) => s.showCreatedModal);
+  const setShowCreatedModal = useAppStore((s) => s.setShowCreatedModal);
+  const showRoomInfo = useAppStore((s) => s.showRoomInfo);
+  const setShowRoomInfo = useAppStore((s) => s.setShowRoomInfo);
+  const showSettingsModal = useAppStore((s) => s.showSettingsModal);
+  const setShowSettingsModal = useAppStore((s) => s.setShowSettingsModal);
+
+  const isInboxEditMode = useAppStore((s) => s.isInboxEditMode);
+  const setIsInboxEditMode = useAppStore((s) => s.setIsInboxEditMode);
+  const selectedRoomCodes = useAppStore((s) => s.selectedRoomCodes);
+  const setSelectedRoomCodes = useAppStore((s) => s.setSelectedRoomCodes);
+  const toggleSelectRoom = useAppStore((s) => s.toggleSelectRoom);
+  const customRoomNameInput = useAppStore((s) => s.customRoomNameInput);
+  const setCustomRoomNameInput = useAppStore((s) => s.setCustomRoomNameInput);
+  const roomCodeInput = useAppStore((s) => s.roomCodeInput);
+  const setRoomCodeInput = useAppStore((s) => s.setRoomCodeInput);
+  const resetAllState = useAppStore((s) => s.resetAllState);
+
+  // Local UI transient feedback state
   const [loading, setLoading] = useState<boolean>(false);
-
-  // Whisper studio state
-  const [whisperRoomCode, setWhisperRoomCode] = useState<string>(() => generateRoomCode());
-  const [promptIndex, setPromptIndex] = useState<number>(0);
-  const [themeIndex] = useState<number>(0);
-  const [chosenVibe, setChosenVibe] = useState<VibeOption | null>(null);
-
-  // Active Room state
-  const [roomCodeInput, setRoomCodeInput] = useState<string>('');
-  const [activeRoomId, setActiveRoomId] = useState<string>('');
-  const [activeRoomCode, setActiveRoomCode] = useState<string>('');
-  const [activeRoomName, setActiveRoomName] = useState<string>('Secret Room');
-  const [roomExpiresAt, setRoomExpiresAt] = useState<string>('');
-  const [roomCreatorDeviceId, setRoomCreatorDeviceId] = useState<string>('');
-  const [roomCreatorId, setRoomCreatorId] = useState<string>('');
-
-  // Modals and Feedback
-  const [showJoinCodeModal, setShowJoinCodeModal] = useState<boolean>(false);
-  const [showCreatedModal, setShowCreatedModal] = useState<boolean>(false);
-  const [showRoomInfo, setShowRoomInfo] = useState<boolean>(false);
-  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
-  const [customRoomNameInput, setCustomRoomNameInput] = useState<string>('');
   const [nameSavedFeedback, setNameSavedFeedback] = useState<boolean>(false);
-  const [roomCreatedFeedback, setRoomCreatedFeedback] = useState<boolean>(false);
-
-  // Inbox & History state
-  const [isInboxEditMode, setIsInboxEditMode] = useState<boolean>(false);
-  const [selectedRoomCodes, setSelectedRoomCodes] = useState<string[]>([]);
-  const [recentRooms, setRecentRooms] = useState<RecentRoom[]>([]);
-  const [verifiedActiveRooms, setVerifiedActiveRooms] = useState<ActiveRoomDetail[]>([]);
-  const [checkingHistory, setCheckingHistory] = useState<boolean>(false);
-
+  const [roomCreatedFeedback] = useState<boolean>(false);
   const debounceTimerRef = useRef<any>(null);
 
-  // Custom Hooks
-  const { 
-    deviceId, 
-    userId, 
-    userNickname, 
-    userAvatar, 
-    setUserNickname, 
-    setUserAvatar, 
-    randomizeNickname 
+  // Identity Hook
+  const {
+    deviceId,
+    userId,
+    userNickname,
+    userAvatar,
+    setUserNickname,
+    setUserAvatar,
+    randomizeNickname,
   } = useDeviceIdentity();
+
+  // TanStack Query: Inbox and Rooms
+  const {
+    data: verifiedActiveRooms = [],
+    isLoading: checkingHistory,
+    isRefetching: isRefetchingInbox,
+    refetch: refetchInbox,
+  } = useInboxRooms(deviceId);
+
+  const { mutateAsync: saveRecentRoomMutation } = useSaveRecentRoomMutation(deviceId);
+  const { mutateAsync: deleteRoomsMutation } = useDeleteRoomsMutation(deviceId);
+  const { mutateAsync: markRoomReadMutation } = useMarkRoomReadMutation(deviceId);
+  const { mutateAsync: createRoomMutation } = useCreateRoomMutation(deviceId, userId);
+  const { mutateAsync: renameRoomMutation } = useRenameRoomMutation(deviceId);
 
   const isCurrentRoomCreator = Boolean(
     (roomCreatorDeviceId && roomCreatorDeviceId === deviceId) ||
@@ -107,31 +141,23 @@ export default function App() {
   );
 
   // Simply back to landing (room stays in inbox)
-  const handleLeaveRoom = () => {
-    setShowRoomInfo(false);
-    setActiveRoomId('');
-    setActiveRoomCode('');
-    setRoomExpiresAt('');
-    setActiveRoomName('');
-    setRoomCreatorDeviceId('');
-    setRoomCreatorId('');
-    setCurrentScreen('landing');
-    loadRecentRooms(deviceId);
+  const handleLeaveRoom = async () => {
+    const code = activeRoomCode;
+    if (code) {
+      await setRoomLastRead(code, Date.now());
+      markRoomReadMutation(code);
+    }
+    leaveRoom();
+    refetchInbox();
   };
 
   // Explicitly Leave & Remove room from inbox and device sessions
-  const handleLeaveAndRemoveRoom = () => {
+  const handleLeaveAndRemoveRoom = async () => {
     const codeToRemove = activeRoomCode;
     handleLeaveRoom();
 
     if (codeToRemove) {
-      const updated = recentRooms.filter((r) => r.code !== codeToRemove);
-      setRecentRooms(updated);
-      setVerifiedActiveRooms((prev) => prev.filter((r) => r.code !== codeToRemove));
-      saveLocalRecentRooms(updated);
-      if (deviceId) {
-        deleteDeviceSessions(deviceId, [codeToRemove]);
-      }
+      await deleteRoomsMutation([codeToRemove]);
     }
   };
 
@@ -142,13 +168,7 @@ export default function App() {
     handleLeaveRoom();
 
     if (codeToRemove) {
-      const updated = recentRooms.filter((r) => r.code !== codeToRemove);
-      setRecentRooms(updated);
-      setVerifiedActiveRooms((prev) => prev.filter((r) => r.code !== codeToRemove));
-      saveLocalRecentRooms(updated);
-      if (deviceId) {
-        deleteDeviceSessions(deviceId, [codeToRemove]);
-      }
+      await deleteRoomsMutation([codeToRemove]);
     }
 
     if (idToRemove && codeToRemove) {
@@ -174,99 +194,21 @@ export default function App() {
     handleLeaveRoom,
   });
 
-  // Load and sync rooms with instant local seeding
-  const loadRecentRooms = async (activeDevId: string = deviceId) => {
-    const localRooms = await getLocalRecentRooms();
-    if (localRooms.length > 0) {
-      setRecentRooms(localRooms);
-      // Instant seed to avoid blank screens
-      setVerifiedActiveRooms((prev) => {
-        if (prev.length === 0) {
-          return localRooms.map((r) => ({
-            code: r.code,
-            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-            name: r.name || r.code,
-            hasUnread: false,
-          }));
-        }
-        return prev;
-      });
-    }
-
-    if (activeDevId) {
-      const dbSessions = await fetchDeviceSessions(activeDevId);
-      if (dbSessions.length > 0) {
-        const combined = [
-          ...dbSessions,
-          ...localRooms.filter((lr) => !dbSessions.some((m) => m.code === lr.code)),
-        ].slice(0, 25);
-
-        setRecentRooms(combined);
-        verifyRooms(combined);
-        saveLocalRecentRooms(combined);
-        return;
-      }
-    }
-
-    if (localRooms.length > 0) {
-      verifyRooms(localRooms);
-    }
-  };
-
-  const verifyRooms = async (roomsList: RecentRoom[] = recentRooms) => {
-    if (roomsList.length === 0) {
-      setVerifiedActiveRooms([]);
-      return;
-    }
-    if (verifiedActiveRooms.length === 0) {
-      setCheckingHistory(true);
-    }
-    try {
-      const active = await verifyActiveRoomsFromDB(roomsList);
-      setVerifiedActiveRooms(active);
-    } finally {
-      setCheckingHistory(false);
-    }
-  };
-
-  const saveRecentRoom = async (code: string, name?: string) => {
-    const existing = recentRooms.find((r) => r.code === code);
-    const resolvedName = name || existing?.name;
-    const updated = [
-      { code, timestamp: Date.now(), name: resolvedName },
-      ...recentRooms.filter((r) => r.code !== code),
-    ].slice(0, 25);
-
-    setRecentRooms(updated);
-    saveLocalRecentRooms(updated);
-    verifyRooms(updated);
-    syncDeviceSession(deviceId, code, resolvedName);
-  };
-
   // Check if user has already completed welcome onboarding
   useEffect(() => {
-    AsyncStorage.getItem('vailchat_seen_welcome').then((seen) => {
-      if (seen === 'true') {
-        setCurrentScreen('landing');
-      }
-    }).catch(() => {});
-  }, []);
+    AsyncStorage.getItem('vailchat_seen_welcome')
+      .then((seen) => {
+        if (seen === 'true') {
+          setCurrentScreen('landing');
+        }
+      })
+      .catch(() => {});
+  }, [setCurrentScreen]);
 
-  // Initial Load and Inbox Tab Sync
+  // Real-time listener for new messages with instant optimistic cache updates
   useEffect(() => {
-    if (deviceId) {
-      loadRecentRooms(deviceId);
-    }
-  }, [deviceId]);
+    if (!deviceId) return;
 
-  useEffect(() => {
-    if (activeTab === 'inbox') {
-      loadRecentRooms(deviceId);
-    }
-  }, [activeTab]);
-
-  // Real-time listener for new messages with smart debouncing for peak performance
-  useEffect(() => {
     const channel = supabase
       .channel('global_inbox_messages')
       .on(
@@ -276,12 +218,54 @@ export default function App() {
           schema: 'public',
           table: 'messages',
         },
-        () => {
-          if (currentScreen !== 'chat-room') {
-            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-            debounceTimerRef.current = setTimeout(() => {
-              loadRecentRooms(deviceId);
-            }, 100);
+        (payload) => {
+          const newMsg = payload.new as any;
+          if (newMsg?.room_id) {
+            qc.invalidateQueries({ queryKey: messageKeys.room(newMsg.room_id) });
+          }
+          if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+          debounceTimerRef.current = setTimeout(() => {
+            qc.invalidateQueries({ queryKey: inboxKeys.byDevice(deviceId) });
+          }, 300);
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'new_message' },
+        (event) => {
+          const payload = event.payload;
+          if (!payload) return;
+
+          // Instant 0ms optimistic cache mutation: Show 'New' badge & sort room to top immediately
+          const targetCode = (payload.roomCode || '').toLowerCase();
+          if (targetCode) {
+            qc.setQueryData<ActiveRoomDetail[]>(
+              inboxKeys.byDevice(deviceId),
+              (old = []) => {
+                let matched = false;
+                const updated = old.map((r) => {
+                  if (r.code.toLowerCase() === targetCode) {
+                    matched = true;
+                    return { ...r, hasUnread: true };
+                  }
+                  return r;
+                });
+                if (!matched && payload.roomCode) {
+                  updated.unshift({
+                    code: payload.roomCode,
+                    name: payload.roomCode,
+                    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                    hasUnread: true,
+                  });
+                }
+                updated.sort((a, b) => (a.hasUnread === b.hasUnread ? 0 : a.hasUnread ? -1 : 1));
+                return updated;
+              }
+            );
+          }
+
+          if (payload.roomId) {
+            qc.invalidateQueries({ queryKey: messageKeys.room(payload.roomId) });
           }
         }
       )
@@ -291,7 +275,7 @@ export default function App() {
       supabase.removeChannel(channel);
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
-  }, [currentScreen, deviceId]);
+  }, [deviceId, qc]);
 
   // Deep Linking Navigation
   useEffect(() => {
@@ -334,7 +318,7 @@ export default function App() {
     // If joining whisper room code, ensure created in DB
     if (cleanCode === whisperRoomCode.toLowerCase()) {
       try {
-        await createRoomInDB(whisperRoomCode, undefined, deviceId, userId);
+        await createRoomMutation({ code: whisperRoomCode });
       } catch (e) {}
     }
 
@@ -351,23 +335,18 @@ export default function App() {
     setLoading(true);
     try {
       const room = await fetchRoomByCode(cleanCode);
-      setActiveRoomId(room.id);
-      setActiveRoomCode(room.code);
-      setActiveRoomName(room.resolvedName);
-      setRoomExpiresAt(room.expires_at);
-      setRoomCreatorDeviceId(room.creator_device_id || '');
-      setRoomCreatorId(room.creator_id || '');
-      saveRecentRoom(room.code, room.resolvedName);
+      enterRoom({
+        id: room.id,
+        code: room.code,
+        name: room.resolvedName,
+        expires_at: room.expires_at,
+        creator_device_id: room.creator_device_id || '',
+        creator_id: room.creator_id || '',
+      });
 
-      // Mark room read instantly
-      setRoomLastRead(cleanCode, Date.now());
-      setVerifiedActiveRooms((prev) =>
-        prev.map((r) => (r.code === cleanCode ? { ...r, hasUnread: false } : r))
-      );
-
-      setShowJoinCodeModal(false);
-      setRoomCodeInput('');
-      setCurrentScreen('chat-room');
+      // Save to recent and mark read
+      saveRecentRoomMutation({ code: room.code, name: room.resolvedName });
+      markRoomReadMutation(cleanCode);
     } catch (err: any) {
       Alert.alert('Unable to Join', err.message || 'Could not find that room. Make sure the code is exact.');
     } finally {
@@ -396,7 +375,6 @@ export default function App() {
 
   const handleUsernameSelected = (username: string) => {
     setUserNickname(username);
-    saveStoredUsername(username);
     if (deviceId) {
       recordOnboardingVibe({
         deviceId,
@@ -410,7 +388,6 @@ export default function App() {
 
   const handleAvatarSelected = (avatarUri: string) => {
     setUserAvatar(avatarUri);
-    saveStoredAvatar(avatarUri);
     AsyncStorage.setItem('vailchat_seen_welcome', 'true').catch(() => {});
     setCurrentScreen('landing');
   };
@@ -425,19 +402,13 @@ export default function App() {
     try {
       setLoading(true);
       setShowSettingsModal(false);
-      if (deviceId && recentRooms.length > 0) {
-        await deleteDeviceSessions(deviceId, recentRooms.map((r) => r.code));
+      if (deviceId && verifiedActiveRooms.length > 0) {
+        await deleteRoomsMutation(verifiedActiveRooms.map((r) => r.code));
       }
       await clearAllUserData();
-      setRecentRooms([]);
-      setVerifiedActiveRooms([]);
-      setSelectedRoomCodes([]);
-      setActiveRoomId('');
-      setActiveRoomCode('');
-      setUserAvatar('');
-      setUserNickname('');
-      setWhisperRoomCode(generateRoomCode());
-      setCurrentScreen('welcome');
+      qc.clear();
+      resetAllState();
+
       if (Platform.OS === 'android') {
         ToastAndroid.show('Account deleted successfully.', ToastAndroid.SHORT);
       } else {
@@ -451,7 +422,7 @@ export default function App() {
   };
 
   const handleCreateNewWhisperRoom = async () => {
-    const newCode = generateRoomCode();
+    const newCode = generateNewWhisperCode();
     const shareUrl = `https://vailchat.com/join?code=${newCode}`;
 
     Clipboard.setString(shareUrl);
@@ -459,16 +430,11 @@ export default function App() {
       ToastAndroid.show('Room link copied to clipboard! 📋', ToastAndroid.SHORT);
     }
 
-    setWhisperRoomCode(newCode);
-    setActiveRoomCode(newCode);
-    setRoomCreatorDeviceId(deviceId);
-    setRoomCreatorId(userId);
-    setCustomRoomNameInput('');
-    saveRecentRoom(newCode);
+    saveRecentRoomMutation({ code: newCode });
     setShowCreatedModal(true);
 
     try {
-      await createRoomInDB(newCode, undefined, deviceId, userId);
+      await createRoomMutation({ code: newCode });
     } catch (e) {
       console.warn('createRoomInDB warning on new whisper room:', e);
     }
@@ -477,8 +443,8 @@ export default function App() {
   const handleUniversalShare = async () => {
     const targetCode = activeRoomCode || whisperRoomCode;
     try {
-      await createRoomInDB(targetCode, undefined, deviceId, userId);
-      saveRecentRoom(targetCode);
+      await createRoomMutation({ code: targetCode });
+      saveRecentRoomMutation({ code: targetCode });
     } catch (e) {
       console.warn('createRoomInDB warning on universal share:', e);
     }
@@ -494,35 +460,15 @@ export default function App() {
     setNameSavedFeedback(true);
     setTimeout(() => setNameSavedFeedback(false), 2500);
 
-    setVerifiedActiveRooms((prev) =>
-      prev.map((r) => (r.code === targetCode ? { ...r, name: nameToSave } : r))
-    );
-
-    setRecentRooms((prev) => {
-      const updated = prev.map((r) => (r.code === targetCode ? { ...r, name: nameToSave } : r));
-      saveLocalRecentRooms(updated);
-      return updated;
-    });
-
     try {
-      await renameRoomByCodeInDB(targetCode, nameToSave);
+      await renameRoomMutation({ roomCode: targetCode, newName: nameToSave });
+      saveRecentRoomMutation({ code: targetCode, name: nameToSave });
     } catch (e) {}
-    syncDeviceSession(deviceId, targetCode, nameToSave);
-  };
-
-  const toggleSelectRoom = (code: string) => {
-    setSelectedRoomCodes((prev) =>
-      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
-    );
   };
 
   const handleDeleteSelectedRooms = async () => {
     if (selectedRoomCodes.length === 0) return;
-    const updated = recentRooms.filter((r) => !selectedRoomCodes.includes(r.code));
-    setRecentRooms(updated);
-    setVerifiedActiveRooms((prev) => prev.filter((r) => !selectedRoomCodes.includes(r.code)));
-    saveLocalRecentRooms(updated);
-    deleteDeviceSessions(deviceId, selectedRoomCodes);
+    await deleteRoomsMutation(selectedRoomCodes);
     setSelectedRoomCodes([]);
     setIsInboxEditMode(false);
   };
@@ -572,7 +518,7 @@ export default function App() {
           <LandingScreen
             activeTab={activeTab}
             setActiveTab={setActiveTab}
-            themeIndex={themeIndex}
+            themeIndex={0}
             promptIndex={promptIndex}
             setPromptIndex={setPromptIndex}
             whisperRoomCode={whisperRoomCode}
@@ -595,6 +541,8 @@ export default function App() {
             onJoinRoom={handleJoinRoom}
             onOpenJoinCodeModal={() => setShowJoinCodeModal(true)}
             onOpenSettings={() => setShowSettingsModal(true)}
+            onRefreshInbox={refetchInbox}
+            isRefetchingInbox={isRefetchingInbox}
           />
         )}
 
@@ -660,6 +608,14 @@ export default function App() {
         />
       </RNSafeAreaView>
     </SafeAreaProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MainApp />
+    </QueryClientProvider>
   );
 }
 

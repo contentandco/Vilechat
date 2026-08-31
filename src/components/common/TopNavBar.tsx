@@ -19,24 +19,24 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
   onOpenSettings,
 }) => {
   return (
-    <View style={styles.topNglBar}>
-      <View style={styles.topNglTabs}>
+    <View style={styles.topNavBar}>
+      <View style={styles.topNavTabs}>
         <TouchableOpacity 
-          style={styles.topNglTab}
+          style={styles.topNavTab}
           onPress={() => setActiveTab('whisper')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.topNglTabText, activeTab === 'whisper' && styles.topNglTabTextActive]}>
+          <Text style={[styles.topNavTabText, activeTab === 'whisper' && styles.topNavTabTextActive]}>
             Whisper
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={styles.topNglTab}
+          style={styles.topNavTab}
           onPress={() => setActiveTab('inbox')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.topNglTabText, activeTab === 'inbox' && styles.topNglTabTextActive]}>
+          <Text style={[styles.topNavTabText, activeTab === 'inbox' && styles.topNavTabTextActive]}>
             Inbox
           </Text>
           {hasUnread && <View style={styles.inboxRedDot} />}
@@ -55,7 +55,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
 };
 
 const styles = StyleSheet.create({
-  topNglBar: {
+  topNavBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -63,23 +63,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 6,
   },
-  topNglTabs: {
+  topNavTabs: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 20,
   },
-  topNglTab: {
+  topNavTab: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 4,
   },
-  topNglTabText: {
+  topNavTabText: {
     fontSize: 26,
     fontWeight: '900',
     color: Colors.textMuted,
     letterSpacing: -0.5,
   },
-  topNglTabTextActive: {
+  topNavTabTextActive: {
     color: Colors.textPrimary,
   },
   inboxRedDot: {

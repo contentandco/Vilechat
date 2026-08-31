@@ -70,7 +70,7 @@ export interface SendMessageParams {
 }
 
 /**
- * Encrypts and posts a message to Supabase.
+ * Encrypts and posts a message to Supabase, broadcasting live across WebSocket channels.
  */
 export async function sendEncryptedMessage({
   id = generateClientUUID(),
@@ -85,6 +85,7 @@ export async function sendEncryptedMessage({
   isSystem = false,
 }: SendMessageParams) {
   const encryptedContent = encryptMessage(rawContent, roomCode);
+  const createdAt = new Date().toISOString();
 
   const { error } = await supabase
     .from('messages')
@@ -102,6 +103,37 @@ export async function sendEncryptedMessage({
     ]);
 
   if (error) throw error;
+
+  // 1. Broadcast immediate global notification for inbox badges
+  try {
+    const globalChannel = supabase.channel('global_inbox_messages');
+    globalChannel.send({
+      type: 'broadcast',
+      event: 'new_message',
+      payload: { roomId, roomCode },
+    });
+  } catch (e) {}
+
+  // 2. Broadcast immediate room event for open chat screens
+  try {
+    const roomChannel = supabase.channel(`room_${roomId}`);
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'room_new_message',
+      payload: {
+        id,
+        room_id: roomId,
+        sender_id: isSystem ? '__system__' : senderId,
+        sender_name: isSystem ? 'System' : senderName,
+        content_encrypted: encryptedContent,
+        is_image: isImage,
+        is_voice: isVoice,
+        is_sticker: isSticker,
+        created_at: createdAt,
+      },
+    });
+  } catch (e) {}
+
   return id;
 }
 
@@ -134,13 +166,33 @@ export async function sendSystemJoinMessage(
 }
 
 /**
- * Subscribes to real-time incoming messages for an active room.
+ * Subscribes to real-time incoming messages for an active room with dual-channel (postgres_changes + broadcast) listeners.
  */
 export function subscribeToRoomMessages(
   roomId: string,
   roomCode: string,
   onNewMessage: (msg: MessageItem) => void
 ) {
+  const handleIncomingPayload = (newMsg: any) => {
+    if (!newMsg || !newMsg.content_encrypted) return;
+    const decryptedContent = decryptMessage(newMsg.content_encrypted, roomCode);
+    const isSystem = newMsg.sender_id === '__system__' || newMsg.sender_name === 'System';
+    
+    const formattedMsg: MessageItem = {
+      id: newMsg.id,
+      sender_id: newMsg.sender_id,
+      sender_name: newMsg.sender_name,
+      content: decryptedContent,
+      is_image: Boolean(newMsg.is_image),
+      is_voice: Boolean(newMsg.is_voice),
+      is_sticker: Boolean(newMsg.is_sticker),
+      is_system: isSystem,
+      created_at: newMsg.created_at || new Date().toISOString(),
+    };
+
+    onNewMessage(formattedMsg);
+  };
+
   const channel = supabase
     .channel(`room_${roomId}`)
     .on(
@@ -152,23 +204,14 @@ export function subscribeToRoomMessages(
         filter: `room_id=eq.${roomId}`,
       },
       (payload) => {
-        const newMsg = payload.new;
-        const decryptedContent = decryptMessage(newMsg.content_encrypted, roomCode);
-        const isSystem = newMsg.sender_id === '__system__' || newMsg.sender_name === 'System';
-        
-        const formattedMsg: MessageItem = {
-          id: newMsg.id,
-          sender_id: newMsg.sender_id,
-          sender_name: newMsg.sender_name,
-          content: decryptedContent,
-          is_image: Boolean(newMsg.is_image),
-          is_voice: Boolean(newMsg.is_voice),
-          is_sticker: Boolean(newMsg.is_sticker),
-          is_system: isSystem,
-          created_at: newMsg.created_at,
-        };
-
-        onNewMessage(formattedMsg);
+        handleIncomingPayload(payload.new);
+      }
+    )
+    .on(
+      'broadcast',
+      { event: 'room_new_message' },
+      (event) => {
+        handleIncomingPayload(event.payload);
       }
     )
     .subscribe();
