@@ -163,17 +163,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   whisperScroll: {
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingBottom: 40,
   },
   inboxWrapper: {
     flex: 1,
   },
   inboxScroll: {
-    paddingBottom: 40,
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    paddingBottom: 24,
   },
   historyContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 12,
   },
   centeredLoading: {

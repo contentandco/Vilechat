@@ -22,9 +22,10 @@ export const JoinByCodeButton: React.FC<JoinByCodeButtonProps> = ({ onPress }) =
 
 const styles = StyleSheet.create({
   bottomWhoSentContainer: {
-    paddingVertical: 10,
-    paddingHorizontal: 4,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     backgroundColor: Colors.background,
+    marginTop: 'auto',
   },
   whoSentBtn: {
     backgroundColor: Colors.primary,
@@ -38,8 +39,8 @@ const styles = StyleSheet.create({
   },
   whoSentBtnText: {
     color: Colors.textWhite,
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: 0.3,
+    fontSize: 16,
+    fontWeight: 'normal',
+    letterSpacing: 0.2,
   },
 });
