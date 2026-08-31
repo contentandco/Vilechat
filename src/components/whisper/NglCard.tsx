@@ -18,6 +18,7 @@ interface NglCardProps {
   promptIndex: number;
   setPromptIndex: React.Dispatch<React.SetStateAction<number>>;
   roomCode: string;
+  userAvatar?: string;
   onRandomizeNickname: () => string;
 }
 
@@ -26,6 +27,7 @@ export const NglCard: React.FC<NglCardProps> = ({
   promptIndex,
   setPromptIndex,
   roomCode,
+  userAvatar,
   onRandomizeNickname,
 }) => {
   const currentTheme = CARD_THEMES[themeIndex] || CARD_THEMES[0];
@@ -46,7 +48,7 @@ export const NglCard: React.FC<NglCardProps> = ({
       <View style={styles.nglAvatarContainer}>
         <View style={styles.nglAvatarCircle}>
           <Image 
-            source={require('../../../assets/default_avatar.png')} 
+            source={userAvatar ? { uri: userAvatar } : require('../../../assets/default_avatar.png')} 
             style={styles.nglAvatarImg} 
             resizeMode="cover"
           />

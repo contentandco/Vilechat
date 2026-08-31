@@ -4,6 +4,8 @@ import { RecentRoom } from '../types';
 const STORAGE_KEYS = {
   DEVICE_ID: 'vailchat_device_id',
   RECENT_ROOMS: 'vailchat_recent_rooms',
+  USERNAME: 'vailchat_username',
+  AVATAR: 'vailchat_avatar',
 };
 
 // In-memory fallback in case native storage is unavailable in web / test environments
@@ -93,6 +95,34 @@ export async function getOrInitDeviceId(): Promise<string> {
   } catch (e) {
     return generateUniqueDeviceId();
   }
+}
+
+/**
+ * Retrieves stored username if user chose one.
+ */
+export async function getStoredUsername(): Promise<string | null> {
+  return safeGetItem(STORAGE_KEYS.USERNAME);
+}
+
+/**
+ * Persists chosen username to storage.
+ */
+export async function saveStoredUsername(username: string): Promise<void> {
+  return safeSetItem(STORAGE_KEYS.USERNAME, username);
+}
+
+/**
+ * Retrieves stored avatar uri if user chose one.
+ */
+export async function getStoredAvatar(): Promise<string | null> {
+  return safeGetItem(STORAGE_KEYS.AVATAR);
+}
+
+/**
+ * Persists chosen avatar uri/base64 to storage.
+ */
+export async function saveStoredAvatar(avatarUri: string): Promise<void> {
+  return safeSetItem(STORAGE_KEYS.AVATAR, avatarUri);
 }
 
 /**

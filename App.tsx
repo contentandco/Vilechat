@@ -13,6 +13,8 @@ import { generateRoomCode } from './src/lib/encryption';
 import {
   getLocalRecentRooms,
   saveLocalRecentRooms,
+  saveStoredUsername,
+  saveStoredAvatar,
 } from './src/services/storage';
 import { shareRoomLink } from './src/services/share';
 import {
@@ -32,6 +34,9 @@ import { useHardwareBack } from './src/hooks/useHardwareBack';
 
 // Screens and Modals
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
+import { OnboardingVibeScreen, VibeOption } from './src/screens/OnboardingVibeScreen';
+import { OnboardingUsernameScreen } from './src/screens/OnboardingUsernameScreen';
+import { OnboardingAvatarScreen } from './src/screens/OnboardingAvatarScreen';
 import { LandingScreen } from './src/screens/LandingScreen';
 import { RoomDashboardScreen } from './src/screens/RoomDashboardScreen';
 import { ChatRoomScreen } from './src/screens/ChatRoomScreen';
@@ -72,7 +77,15 @@ export default function App() {
   const [checkingHistory, setCheckingHistory] = useState<boolean>(false);
 
   // Custom Hooks
-  const { deviceId, userId, userNickname, randomizeNickname } = useDeviceIdentity();
+  const { 
+    deviceId, 
+    userId, 
+    userNickname, 
+    userAvatar, 
+    setUserNickname, 
+    setUserAvatar, 
+    randomizeNickname 
+  } = useDeviceIdentity();
 
   // Simply back to landing (room stays in inbox)
   const handleLeaveRoom = () => {
@@ -171,7 +184,7 @@ export default function App() {
     syncDeviceSession(deviceId, code, resolvedName);
   };
 
-  // Check if user has already seen welcome screen
+  // Check if user has already completed welcome onboarding
   useEffect(() => {
     AsyncStorage.getItem('vailchat_seen_welcome').then((seen) => {
       if (seen === 'true') {
@@ -249,7 +262,30 @@ export default function App() {
     }
   };
 
+  // Onboarding Handlers
   const handleGetStarted = () => {
+    setCurrentScreen('onboarding-vibe');
+  };
+
+  const handleVibeSelected = (vibe: VibeOption) => {
+    setPromptIndex(vibe.promptIndex);
+    setCurrentScreen('onboarding-username');
+  };
+
+  const handleUsernameSelected = (username: string) => {
+    setUserNickname(username);
+    saveStoredUsername(username);
+    setCurrentScreen('onboarding-avatar');
+  };
+
+  const handleAvatarSelected = (avatarUri: string) => {
+    setUserAvatar(avatarUri);
+    saveStoredAvatar(avatarUri);
+    AsyncStorage.setItem('vailchat_seen_welcome', 'true').catch(() => {});
+    setCurrentScreen('landing');
+  };
+
+  const handleSkipAvatar = () => {
     AsyncStorage.setItem('vailchat_seen_welcome', 'true').catch(() => {});
     setCurrentScreen('landing');
   };
@@ -333,12 +369,39 @@ export default function App() {
           backgroundColor={currentScreen === 'welcome' ? '#E5006C' : Colors.background} 
         />
 
-        {/* Welcome Onboarding Screen */}
+        {/* Step 1: Welcome Onboarding Screen */}
         {currentScreen === 'welcome' && (
           <WelcomeScreen onGetStarted={handleGetStarted} />
         )}
 
-        {/* Landing Screen */}
+        {/* Step 2: Choose Your Anonymous Vibe Screen */}
+        {currentScreen === 'onboarding-vibe' && (
+          <OnboardingVibeScreen
+            onBack={() => setCurrentScreen('welcome')}
+            onContinue={handleVibeSelected}
+          />
+        )}
+
+        {/* Step 3: Choose Your Username Screen */}
+        {currentScreen === 'onboarding-username' && (
+          <OnboardingUsernameScreen
+            onBack={() => setCurrentScreen('onboarding-vibe')}
+            onContinue={handleUsernameSelected}
+            initialUsername={userNickname}
+          />
+        )}
+
+        {/* Step 4: Choose Your Profile Picture Screen */}
+        {currentScreen === 'onboarding-avatar' && (
+          <OnboardingAvatarScreen
+            onBack={() => setCurrentScreen('onboarding-username')}
+            onContinue={handleAvatarSelected}
+            onSkip={handleSkipAvatar}
+            initialAvatar={userAvatar}
+          />
+        )}
+
+        {/* Main App: Landing Screen */}
         {currentScreen === 'landing' && (
           <LandingScreen
             activeTab={activeTab}
@@ -349,6 +412,7 @@ export default function App() {
             whisperRoomCode={whisperRoomCode}
             activeRoomCode={activeRoomCode}
             userNickname={userNickname}
+            userAvatar={userAvatar}
             onRandomizeNickname={randomizeNickname}
             onCreateNewWhisperRoom={handleCreateNewWhisperRoom}
             onUniversalShare={handleUniversalShare}

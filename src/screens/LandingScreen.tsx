@@ -19,6 +19,7 @@ interface LandingScreenProps {
   whisperRoomCode: string;
   activeRoomCode: string;
   userNickname: string;
+  userAvatar?: string;
   onRandomizeNickname: () => string;
   onCreateNewWhisperRoom: () => void;
   onUniversalShare: () => void;
@@ -45,6 +46,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   whisperRoomCode,
   activeRoomCode,
   userNickname,
+  userAvatar,
   onRandomizeNickname,
   onCreateNewWhisperRoom,
   onUniversalShare,
@@ -85,6 +87,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             promptIndex={promptIndex}
             setPromptIndex={setPromptIndex}
             roomCode={currentRoomCode}
+            userAvatar={userAvatar}
             onRandomizeNickname={onRandomizeNickname}
           />
 
@@ -123,26 +126,28 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               ) : verifiedActiveRooms.length === 0 ? (
                 <EmptyInbox onGoToWhisper={() => setActiveTab('whisper')} />
               ) : (
-                <View style={styles.nglInboxList}>
-                  {verifiedActiveRooms.map((room) => {
-                    const isSelected = selectedRoomCodes.includes(room.code);
-                    return (
-                      <InboxItem
-                        key={room.code}
-                        room={room}
-                        isInboxEditMode={isInboxEditMode}
-                        isSelected={isSelected}
-                        onPress={() => isInboxEditMode ? toggleSelectRoom(room.code) : onJoinRoom(room.code)}
-                      />
-                    );
-                  })}
+                <View style={styles.roomsList}>
+                  {verifiedActiveRooms.map((room) => (
+                    <InboxItem
+                      key={room.code}
+                      room={room}
+                      isInboxEditMode={isInboxEditMode}
+                      isSelected={selectedRoomCodes.includes(room.code)}
+                      onPress={() => {
+                        if (isInboxEditMode) {
+                          toggleSelectRoom(room.code);
+                        } else {
+                          onJoinRoom(room.code);
+                        }
+                      }}
+                    />
+                  ))}
                 </View>
               )}
             </View>
-          </ScrollView>
 
-          {/* Floating Join by Code Button */}
-          <JoinByCodeButton onPress={onOpenJoinCodeModal} />
+            <JoinByCodeButton onPress={onOpenJoinCodeModal} />
+          </ScrollView>
         </View>
       )}
     </View>
@@ -152,32 +157,30 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
 const styles = StyleSheet.create({
   landingContainer: {
     flex: 1,
-    paddingTop: Platform.OS === 'ios' ? 12 : 24,
-    paddingHorizontal: 20,
     backgroundColor: Colors.background,
   },
   whisperScroll: {
-    paddingBottom: 24,
+    paddingVertical: 12,
+    paddingBottom: 40,
   },
   inboxWrapper: {
     flex: 1,
-    position: 'relative',
-    justifyContent: 'space-between',
   },
   inboxScroll: {
-    paddingBottom: 24,
+    paddingBottom: 40,
   },
   historyContainer: {
-    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   centeredLoading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  nglInboxList: {
-    flex: 1,
-    gap: 8,
+  roomsList: {
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 24,
   },
 });

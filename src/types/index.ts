@@ -1,4 +1,12 @@
-export type Screen = 'welcome' | 'landing' | 'room-setup' | 'room-dashboard' | 'chat-room';
+export type Screen = 
+  | 'welcome' 
+  | 'onboarding-vibe' 
+  | 'onboarding-username' 
+  | 'onboarding-avatar' 
+  | 'landing' 
+  | 'room-setup' 
+  | 'room-dashboard' 
+  | 'chat-room';
 
 export type HomeTab = 'whisper' | 'inbox';
 
