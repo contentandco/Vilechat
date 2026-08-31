@@ -49,7 +49,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       style={[
         styles.messageRow, 
         isMe ? styles.messageRowRight : styles.messageRowLeft,
-        { marginBottom: isLastInGroup ? 12 : 2 }
+        { marginBottom: isLastInGroup ? 12 : 3 }
       ]}
     >
       {!isMe && isFirstInGroup && (
@@ -100,7 +100,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 const styles = StyleSheet.create({
   messageRow: {
     marginBottom: 16,
-    maxWidth: '80%',
+    maxWidth: '82%',
   },
   messageRowLeft: {
     alignSelf: 'flex-start',
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   msgBubbleRight: {
-    backgroundColor: Colors.secondary,
+    backgroundColor: Colors.primary,
     borderBottomRightRadius: 4,
   },
   msgBubbleImage: {
@@ -149,14 +149,14 @@ const styles = StyleSheet.create({
   msgText: {
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: 21,
   },
   msgTextLeft: {
     color: Colors.textPrimary,
   },
   msgTextRight: {
     color: Colors.textWhite,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   sentImage: {
     width: 220,
@@ -170,15 +170,15 @@ const styles = StyleSheet.create({
   msgTime: {
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     fontSize: 9,
-    color: Colors.textSecondary,
-    marginTop: 4,
+    color: Colors.textMuted,
+    marginTop: 3,
   },
   msgTimeLeft: {
     alignSelf: 'flex-start',
-    marginLeft: 12,
+    marginLeft: 8,
   },
   msgTimeRight: {
     alignSelf: 'flex-end',
-    marginRight: 12,
+    marginRight: 8,
   },
 });

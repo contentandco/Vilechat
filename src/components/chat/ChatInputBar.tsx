@@ -53,7 +53,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
         <TextInput
           style={styles.instagramTextInput}
           placeholder="Message..."
-          placeholderTextColor={Colors.textSecondary}
+          placeholderTextColor={Colors.textMuted}
           value={inputText}
           onChangeText={setInputText}
           multiline
@@ -73,7 +73,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               <HugeiconsIcon 
                 icon={Mic01Icon} 
                 size={20} 
-                color={isRecording ? Colors.danger : Colors.textPrimary} 
+                color={isRecording ? Colors.primary : Colors.textPrimary} 
               />
             </TouchableOpacity>
 
@@ -94,7 +94,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               <HugeiconsIcon 
                 icon={SmileIcon} 
                 size={20} 
-                color={showStickers ? Colors.secondary : Colors.textPrimary} 
+                color={showStickers ? Colors.primary : Colors.textPrimary} 
               />
             </TouchableOpacity>
           </View>
@@ -164,11 +164,12 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   instagramSendTextBtn: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   instagramSendText: {
-    color: Colors.secondary,
-    fontWeight: '700',
+    color: Colors.primary,
+    fontWeight: '800',
     fontSize: 15,
   },
 });

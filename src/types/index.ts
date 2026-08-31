@@ -1,4 +1,4 @@
-export type Screen = 'landing' | 'room-setup' | 'room-dashboard' | 'chat-room';
+export type Screen = 'welcome' | 'landing' | 'room-setup' | 'room-dashboard' | 'chat-room';
 
 export type HomeTab = 'whisper' | 'inbox';
 

@@ -25,8 +25,8 @@ export const RoomDashboardScreen: React.FC<RoomDashboardScreenProps> = ({
 }) => {
   return (
     <View style={styles.dashboardContainer}>
-      <TouchableOpacity style={styles.backNavButton} onPress={onLeaveRoom}>
-        <HugeiconsIcon icon={ArrowLeft01Icon} size={22} color="#8E8E93" />
+      <TouchableOpacity style={styles.backNavButton} onPress={onLeaveRoom} activeOpacity={0.7}>
+        <HugeiconsIcon icon={ArrowLeft01Icon} size={22} color={Colors.textSecondary} />
         <Text style={styles.backNavText}>Cancel</Text>
       </TouchableOpacity>
 
@@ -42,12 +42,13 @@ export const RoomDashboardScreen: React.FC<RoomDashboardScreenProps> = ({
         <TouchableOpacity 
           style={styles.linkShareCard} 
           onPress={() => copyRoomLinkToClipboard(activeRoomCode)}
+          activeOpacity={0.8}
         >
           <Text style={styles.linkShareText} numberOfLines={1}>
             https://vailchat.com/join?code={activeRoomCode}
           </Text>
           <View style={styles.copyBadge}>
-            <HugeiconsIcon icon={Copy01Icon} size={16} color="#1A1A1E" />
+            <HugeiconsIcon icon={Copy01Icon} size={16} color={Colors.primary} />
           </View>
         </TouchableOpacity>
         <View style={styles.cardDivider} />
@@ -62,7 +63,11 @@ export const RoomDashboardScreen: React.FC<RoomDashboardScreenProps> = ({
         </Text>
       </View>
 
-      <TouchableOpacity style={styles.enterButton} onPress={onEnterChatRoom}>
+      <TouchableOpacity 
+        style={styles.enterButton} 
+        onPress={onEnterChatRoom}
+        activeOpacity={0.85}
+      >
         <Text style={styles.enterButtonText}>Enter Chat Room</Text>
         <HugeiconsIcon icon={Comment03Icon} size={20} color={Colors.textWhite} />
       </TouchableOpacity>
@@ -108,8 +113,8 @@ const styles = StyleSheet.create({
   },
   codeCard: {
     backgroundColor: Colors.cardBackground,
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 22,
     borderWidth: 1,
     borderColor: Colors.border,
     marginBottom: 16,
@@ -132,8 +137,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: Colors.surfaceInput,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: Colors.borderInput,
   },
@@ -146,7 +151,7 @@ const styles = StyleSheet.create({
   },
   copyBadge: {
     padding: 6,
-    backgroundColor: 'rgba(238, 238, 238, 0.1)',
+    backgroundColor: 'rgba(255, 59, 105, 0.12)',
     borderRadius: 8,
   },
   cardDivider: {
@@ -182,12 +187,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   enterButton: {
-    backgroundColor: Colors.secondary,
+    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: 24,
   },
   enterButtonText: {
     color: Colors.textWhite,

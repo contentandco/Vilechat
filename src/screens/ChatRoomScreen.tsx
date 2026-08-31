@@ -17,7 +17,6 @@ import {
   generateClientUUID,
 } from '../api/messages';
 import { subscribeToRoomMeta, renameRoomInDB } from '../api/rooms';
-import { copyRoomLinkToClipboard } from '../services/share';
 
 interface ChatRoomScreenProps {
   roomId: string;
@@ -27,6 +26,7 @@ interface ChatRoomScreenProps {
   userId: string;
   userNickname: string;
   timeRemaining: string;
+  onBack: () => void;
   onLeaveRoom: () => void;
   showRoomInfo: boolean;
   setShowRoomInfo: (show: boolean) => void;
@@ -40,6 +40,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   userId,
   userNickname,
   timeRemaining,
+  onBack,
   onLeaveRoom,
   showRoomInfo,
   setShowRoomInfo,
@@ -262,7 +263,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         roomName={roomName}
         timeRemaining={timeRemaining}
         participantsCount={participantsCount}
-        onBack={onLeaveRoom}
+        onBack={onBack}
         onOpenRoomInfo={() => {
           setRoomNameInputText(roomName);
           setShowRoomInfo(true);
@@ -312,7 +313,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         roomNameInputText={roomNameInputText}
         setRoomNameInputText={setRoomNameInputText}
         onRenameRoom={handleRenameRoom}
-        onCopyInviteLink={() => copyRoomLinkToClipboard(roomCode)}
         onLeaveRoom={onLeaveRoom}
         loading={loading}
       />

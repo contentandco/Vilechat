@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Text, ScrollView } from 'react-native';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { BubbleChatSpark01Icon } from '@hugeicons/core-free-icons';
+import { LockKeyIcon } from '@hugeicons/core-free-icons';
 import { MessageItem } from '../../types';
 import { Colors } from '../../constants/theme';
 import { MessageBubble } from './MessageBubble';
@@ -33,15 +33,16 @@ export const MessageList: React.FC<MessageListProps> = ({
     >
       {messages.length === 0 ? (
         <View style={styles.emptyChatPlaceholder}>
-          <HugeiconsIcon 
-            icon={BubbleChatSpark01Icon} 
-            size={48} 
-            color="#4E5766" 
-            style={{ marginBottom: 12 }} 
-          />
-          <Text style={styles.emptyTitle}>Secure Workspace Initiated</Text>
+          <View style={styles.emptyIconCircle}>
+            <HugeiconsIcon 
+              icon={LockKeyIcon} 
+              size={32} 
+              color={Colors.primary} 
+            />
+          </View>
+          <Text style={styles.emptyTitle}>Encrypted Chat Initiated</Text>
           <Text style={styles.emptyDesc}>
-            Your messages are encrypted end-to-end. Eavesdroppers (and even this database server) see nothing but random letters.
+            All messages, photos, and voice notes are end-to-end encrypted. Eavesdroppers and database servers only see random ciphertext.
           </Text>
         </View>
       ) : (
@@ -82,19 +83,31 @@ const styles = StyleSheet.create({
   emptyChatPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingHorizontal: 32,
+  },
+  emptyIconCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: Colors.cardBackground,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   emptyTitle: {
     color: Colors.textPrimary,
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
+    textAlign: 'center',
   },
   emptyDesc: {
     color: Colors.textSecondary,
     fontSize: 13,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 20,
   },
 });

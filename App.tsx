@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, StatusBar, Alert, Clipboard, Platform, ToastAndroid } from 'react-native';
 import { SafeAreaProvider, SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 
 // Types and Constants
@@ -30,6 +31,7 @@ import { useRoomTimer } from './src/hooks/useRoomTimer';
 import { useHardwareBack } from './src/hooks/useHardwareBack';
 
 // Screens and Modals
+import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { LandingScreen } from './src/screens/LandingScreen';
 import { RoomDashboardScreen } from './src/screens/RoomDashboardScreen';
 import { ChatRoomScreen } from './src/screens/ChatRoomScreen';
@@ -38,7 +40,7 @@ import { RoomCreatedModal } from './src/components/common/RoomCreatedModal';
 
 export default function App() {
   // Navigation and Tab state
-  const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
+  const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [activeTab, setActiveTab] = useState<HomeTab>('whisper');
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -72,6 +74,7 @@ export default function App() {
   // Custom Hooks
   const { deviceId, userId, userNickname, randomizeNickname } = useDeviceIdentity();
 
+  // Simply back to landing (room stays in inbox)
   const handleLeaveRoom = () => {
     setShowRoomInfo(false);
     setActiveRoomId('');
@@ -79,6 +82,22 @@ export default function App() {
     setRoomExpiresAt('');
     setActiveRoomName('');
     setCurrentScreen('landing');
+  };
+
+  // Explicitly Leave & Remove room from inbox and device sessions
+  const handleLeaveAndRemoveRoom = () => {
+    const codeToRemove = activeRoomCode;
+    handleLeaveRoom();
+
+    if (codeToRemove) {
+      const updated = recentRooms.filter((r) => r.code !== codeToRemove);
+      setRecentRooms(updated);
+      setVerifiedActiveRooms((prev) => prev.filter((r) => r.code !== codeToRemove));
+      saveLocalRecentRooms(updated);
+      if (deviceId) {
+        deleteDeviceSessions(deviceId, [codeToRemove]);
+      }
+    }
   };
 
   const timeRemaining = useRoomTimer(roomExpiresAt, handleLeaveRoom);
@@ -152,6 +171,15 @@ export default function App() {
     syncDeviceSession(deviceId, code, resolvedName);
   };
 
+  // Check if user has already seen welcome screen
+  useEffect(() => {
+    AsyncStorage.getItem('vailchat_seen_welcome').then((seen) => {
+      if (seen === 'true') {
+        setCurrentScreen('landing');
+      }
+    }).catch(() => {});
+  }, []);
+
   // Initial Load and Inbox Tab Sync
   useEffect(() => {
     if (deviceId) {
@@ -219,6 +247,11 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGetStarted = () => {
+    AsyncStorage.setItem('vailchat_seen_welcome', 'true').catch(() => {});
+    setCurrentScreen('landing');
   };
 
   const handleCreateNewWhisperRoom = async () => {
@@ -295,7 +328,15 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <RNSafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+        <StatusBar 
+          barStyle="light-content" 
+          backgroundColor={currentScreen === 'welcome' ? '#E5006C' : Colors.background} 
+        />
+
+        {/* Welcome Onboarding Screen */}
+        {currentScreen === 'welcome' && (
+          <WelcomeScreen onGetStarted={handleGetStarted} />
+        )}
 
         {/* Landing Screen */}
         {currentScreen === 'landing' && (
@@ -346,7 +387,8 @@ export default function App() {
             userId={userId}
             userNickname={userNickname}
             timeRemaining={timeRemaining}
-            onLeaveRoom={handleLeaveRoom}
+            onBack={handleLeaveRoom}
+            onLeaveRoom={handleLeaveAndRemoveRoom}
             showRoomInfo={showRoomInfo}
             setShowRoomInfo={setShowRoomInfo}
           />

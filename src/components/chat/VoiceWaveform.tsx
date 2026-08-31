@@ -24,9 +24,18 @@ export const VoiceWaveform: React.FC<VoiceWaveformProps> = ({
     >
       <View style={[styles.playButtonCircle, isMe ? styles.playButtonCircleMe : styles.playButtonCircleOther]}>
         {isPlaying ? (
-          <Pause size={14} color={isMe ? Colors.secondary : Colors.textPrimary} fill={isMe ? Colors.secondary : Colors.textPrimary} />
+          <Pause 
+            size={14} 
+            color={isMe ? Colors.primary : Colors.textPrimary} 
+            fill={isMe ? Colors.primary : Colors.textPrimary} 
+          />
         ) : (
-          <Play size={14} color={isMe ? Colors.secondary : Colors.textPrimary} fill={isMe ? Colors.secondary : Colors.textPrimary} style={{ marginLeft: 2 }} />
+          <Play 
+            size={14} 
+            color={isMe ? Colors.primary : Colors.textPrimary} 
+            fill={isMe ? Colors.primary : Colors.textPrimary} 
+            style={{ marginLeft: 2 }} 
+          />
         )}
       </View>
       
@@ -83,7 +92,7 @@ const styles = StyleSheet.create({
   },
   waveformBarMe: {
     backgroundColor: '#FFFFFF',
-    opacity: 0.6,
+    opacity: 0.7,
   },
   waveformBarOther: {
     backgroundColor: Colors.textSecondary,
@@ -91,6 +100,6 @@ const styles = StyleSheet.create({
   },
   waveformBarActive: {
     opacity: 1,
-    backgroundColor: Colors.secondary,
+    backgroundColor: Colors.primary,
   },
 });

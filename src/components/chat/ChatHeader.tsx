@@ -21,8 +21,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 }) => {
   return (
     <View style={styles.instagramHeader}>
-      <TouchableOpacity onPress={onBack} style={styles.chatHeaderLeft}>
-        <HugeiconsIcon icon={ArrowLeft01Icon} size={26} color={Colors.textPrimary} />
+      <TouchableOpacity onPress={onBack} style={styles.chatHeaderLeft} activeOpacity={0.7}>
+        <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={Colors.textPrimary} />
       </TouchableOpacity>
       
       <TouchableOpacity 
@@ -33,7 +33,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         {/* Padlock Anonymous Group Avatar Icon */}
         <View style={styles.headerAvatarContainer}>
           <View style={styles.headerAvatar}>
-            <HugeiconsIcon icon={LockKeyIcon} size={12} color={Colors.textPrimary} />
+            <HugeiconsIcon icon={LockKeyIcon} size={14} color={Colors.primary} />
           </View>
         </View>
         
@@ -42,11 +42,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <Text style={styles.roomCodeTitle} numberOfLines={1}>
               {roomName}
             </Text>
-            <HugeiconsIcon icon={ArrowRight01Icon} size={14} color={Colors.textSecondary} style={{ marginLeft: 4 }} />
+            <HugeiconsIcon icon={ArrowRight01Icon} size={13} color={Colors.textMuted} style={{ marginLeft: 4 }} />
           </View>
-          <Text style={styles.headerStatusText}>
-            {timeRemaining} • {participantsCount} online
-          </Text>
+          <View style={styles.statusRow}>
+            <View style={styles.activeDot} />
+            <Text style={styles.headerStatusText}>
+              {timeRemaining} • {participantsCount} online
+            </Text>
+          </View>
         </View>
       </TouchableOpacity>
 
@@ -67,21 +70,21 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   chatHeaderLeft: {
-    padding: 8,
+    padding: 6,
   },
   instagramHeaderCenter: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 12,
+    marginHorizontal: 10,
   },
   headerAvatarContainer: {
     marginRight: 10,
   },
   headerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Colors.cardBackground,
     borderWidth: 1.5,
     borderColor: Colors.border,
@@ -98,16 +101,29 @@ const styles = StyleSheet.create({
   roomCodeTitle: {
     color: Colors.textPrimary,
     fontWeight: '700',
-    fontSize: 15,
-    maxWidth: 160,
+    fontSize: 16,
+    letterSpacing: -0.2,
+    maxWidth: 180,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+    marginRight: 5,
   },
   headerStatusText: {
     color: Colors.textSecondary,
-    fontSize: 10,
-    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '500',
   },
   chatHeaderRight: {
-    padding: 8,
-    width: 42,
+    padding: 6,
+    width: 36,
   },
 });
