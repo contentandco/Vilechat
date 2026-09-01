@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 let Notifications: any = null;
 
@@ -8,7 +9,7 @@ const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreCl
 if (!isExpoGo) {
   try {
     Notifications = require('expo-notifications');
-    if (Notifications?.setNotificationHandler) {
+    if (Notifications && typeof Notifications.setNotificationHandler === 'function') {
       Notifications.setNotificationHandler({
         handleNotification: async () => ({
           shouldShowAlert: true,
@@ -27,19 +28,21 @@ if (!isExpoGo) {
  */
 export async function requestNotificationPermission(): Promise<boolean> {
   try {
-    if (!Notifications) return false;
+    if (!Notifications || typeof Notifications.getPermissionsAsync !== 'function') {
+      return false;
+    }
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
+    if (existingStatus !== 'granted' && typeof Notifications.requestPermissionsAsync === 'function') {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
 
-    if (Platform.OS === 'android' && Notifications.setNotificationChannelAsync) {
+    if (Platform.OS === 'android' && typeof Notifications.setNotificationChannelAsync === 'function') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Vile Chat Messages',
-        importance: Notifications.AndroidImportance.MAX,
+        importance: Notifications.AndroidImportance?.MAX ?? 5,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF2A6D',
         sound: 'default',
@@ -65,7 +68,9 @@ export async function triggerLocalMessageNotification(
   data?: Record<string, any>
 ): Promise<void> {
   try {
-    if (!Notifications?.scheduleNotificationAsync) return;
+    if (!Notifications || typeof Notifications.scheduleNotificationAsync !== 'function') {
+      return;
+    }
 
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -73,7 +78,7 @@ export async function triggerLocalMessageNotification(
         body,
         data: data || {},
         sound: 'default',
-        priority: Notifications.AndroidNotificationPriority.MAX,
+        priority: Notifications.AndroidNotificationPriority?.MAX ?? 'max',
         channelId: 'default',
       },
       trigger: null, // Immediate
@@ -110,13 +115,18 @@ const ENGAGEMENT_NOTIF_SCHEDULED_KEY = 'vailchat_engagement_scheduled_date';
  */
 export async function scheduleDailyEngagementNotifications(): Promise<void> {
   try {
-    if (!Notifications?.scheduleNotificationAsync || !Notifications?.cancelAllScheduledNotificationsAsync) return;
+    if (
+      !Notifications ||
+      typeof Notifications.scheduleNotificationAsync !== 'function' ||
+      typeof Notifications.cancelAllScheduledNotificationsAsync !== 'function'
+    ) {
+      return;
+    }
 
     // Guard: only schedule once per calendar day
     const today = new Date().toDateString();
     let lastScheduled: string | null = null;
     try {
-      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
       lastScheduled = await AsyncStorage.getItem(ENGAGEMENT_NOTIF_SCHEDULED_KEY);
       if (lastScheduled === today) return; // Already scheduled today — skip
       await AsyncStorage.setItem(ENGAGEMENT_NOTIF_SCHEDULED_KEY, today);
@@ -173,7 +183,7 @@ export async function scheduleShareReminderNotification(): Promise<void> {
  */
 export async function triggerTeamVileNotification(): Promise<void> {
   try {
-    if (!Notifications?.scheduleNotificationAsync) return;
+    if (!Notifications || typeof Notifications.scheduleNotificationAsync !== 'function') return;
 
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -191,7 +201,9 @@ export async function triggerTeamVileNotification(): Promise<void> {
  */
 export function addSafeNotificationClickListener(callback: (roomCode: string) => void) {
   try {
-    if (!Notifications?.addNotificationResponseReceivedListener) return () => {};
+    if (!Notifications || typeof Notifications.addNotificationResponseReceivedListener !== 'function') {
+      return () => {};
+    }
 
     const subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
       const data = response?.notification?.request?.content?.data;
@@ -201,7 +213,9 @@ export function addSafeNotificationClickListener(callback: (roomCode: string) =>
     });
 
     return () => {
-      subscription?.remove?.();
+      try {
+        subscription?.remove?.();
+      } catch (e) {}
     };
   } catch (e) {
     return () => {};
