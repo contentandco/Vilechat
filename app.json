@@ -1,16 +1,20 @@
 {
   "expo": {
-    "name": "vailchat-app",
-    "slug": "vailchat-app",
+    "name": "Vile Chat",
+    "slug": "vile-chat",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Allow Vile Chat to access your microphone to record voice notes.",
+        "NSPhotoLibraryUsageDescription": "Allow Vile Chat to access your photos to send images."
+      }
     },
     "android": {
-      "package": "com.vailchat.app",
+      "package": "com.vilechat.app",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#FF3B69",
@@ -18,8 +22,29 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": [
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
       "predictiveBackGestureEnabled": false
     },
+    "plugins": [
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow Vile Chat to access your microphone to record voice notes."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Vile Chat to access your photos to send images."
+        }
+      ]
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     }

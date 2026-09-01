@@ -30,15 +30,18 @@ jobs:
       - name: 🚀 Set up Expo Prebuild
         run: npx expo prebuild --platform android --clean
 
-      - name: 🛠️ Build Android Release APK
+      - name: 🛠️ Configure Signing & Build Android Release APK
         run: |
+          sed -i 's/signingConfig signingConfigs.release/signingConfig signingConfigs.debug/g' android/app/build.gradle || true
           cd android
           chmod +x ./gradlew
           ./gradlew assembleRelease --no-daemon
+          cd app/build/outputs/apk/release
+          mv *.apk VileChat.apk || true
 
       - name: 📤 Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Vilechat-Release-APK
-          path: android/app/build/outputs/apk/release/*.apk
+          name: Vile-Chat-APK
+          path: android/app/build/outputs/apk/release/VileChat.apk
           retention-days: 30
