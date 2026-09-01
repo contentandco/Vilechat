@@ -41,16 +41,15 @@ export const OnboardingAvatarScreen: React.FC<OnboardingAvatarScreenProps> = ({
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
+        allowsEditing: false,
+        quality: 0.85,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setAvatarUri(result.assets[0].uri);
       }
     } catch (err) {
-      Alert.alert('Error', 'Failed to open image picker.');
+      Alert.alert('Error', 'Failed to select image.');
     }
   };
 

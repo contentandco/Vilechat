@@ -457,30 +457,26 @@ function MainApp() {
     setCurrentScreen('landing');
   };
 
-  // Delete Account Handler
+  // Delete Account Handler (Instant 0ms Transition)
   const handleDeleteAccount = async () => {
     try {
-      setLoading(true);
       setShowSettingsModal(false);
-      if (deviceId && verifiedActiveRooms.length > 0) {
-        try {
-          await deleteRoomsMutation(verifiedActiveRooms.map((r) => r.code));
-        } catch (e) {}
-      }
-      await clearAllUserData();
-      queryClient.clear();
       resetAllState();
       setCurrentScreen('welcome');
+      queryClient.clear();
 
       if (Platform.OS === 'android') {
         ToastAndroid.show('Account deleted. Starting fresh!', ToastAndroid.SHORT);
-      } else {
-        Alert.alert('Account Deleted', 'All data has been wiped. You can now start fresh.');
+      }
+
+      // Cleanup storage and background network sessions in parallel
+      const roomCodesToDelete = verifiedActiveRooms.map((r) => r.code);
+      await clearAllUserData();
+      if (deviceId && roomCodesToDelete.length > 0) {
+        deleteRoomsMutation(roomCodesToDelete).catch(() => {});
       }
     } catch (err) {
-      Alert.alert('Error', 'Failed to completely wipe account data.');
-    } finally {
-      setLoading(false);
+      console.warn('Account cleanup warning:', err);
     }
   };
 
