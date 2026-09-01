@@ -65,7 +65,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         ]}
       >
         <Image
-          source={require('../../assets/logo-transparent.png')}
+          source={require('../../assets/logo-white-transparent.png')}
           style={styles.logoImage}
           resizeMode="contain"
         />

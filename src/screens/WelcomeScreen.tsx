@@ -42,7 +42,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) =>
       <View style={styles.centerContainer}>
         <View style={styles.logoWrapper}>
           <Image
-            source={require('../../assets/logo-transparent.png')}
+            source={require('../../assets/logo-white-transparent.png')}
             style={styles.logoImage}
             resizeMode="contain"
           />
