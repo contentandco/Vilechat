@@ -23,6 +23,7 @@
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "permissions": [
+        "RECORD_AUDIO",
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ],
@@ -34,7 +35,8 @@
         {
           "photosPermission": "Allow Vile Chat to access your photos to send images."
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "web": {
       "favicon": "./assets/favicon.png"
