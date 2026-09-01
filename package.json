@@ -20,8 +20,8 @@
     "lucide-react-native": "^1.37.0",
     "react": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-safe-area-context": "^5.9.1",
-    "react-native-svg": "^15.15.5",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-svg": "15.15.4",
     "react-native-url-polyfill": "^4.0.0",
     "zustand": "^5.0.15"
   },
