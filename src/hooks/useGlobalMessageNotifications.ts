@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { decryptMessage } from '../lib/encryption';
@@ -6,13 +7,17 @@ import { triggerLocalMessageNotification, requestNotificationPermission } from '
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NOTIF_STORAGE_KEYS } from '../components/common/SettingsModal';
 import { getLocalRecentRooms } from '../services/storage';
+import { injectIncomingMessageIntoCache } from './queries/useMessagesQuery';
+import { MessageItem } from '../types';
 
 /**
- * Listens for global messages via Supabase realtime and triggers
- * system notifications when the user receives a message in an active member room,
- * while skipping notifications if the user is actively viewing that chat room or has left it.
+ * WhatsApp/Instagram-grade Real-Time Message Dispatcher:
+ * 1. Background pre-caches incoming messages directly into memory & local storage in 0ms.
+ * 2. Delivers rich system notification banners when user is outside that active chat.
+ * 3. Suppresses notifications when the user is actively viewing that chat room.
  */
 export function useGlobalMessageNotifications() {
+  const queryClient = useQueryClient();
   const deviceId = useAppStore((s) => s.deviceId);
   const activeRoomCode = useAppStore((s) => s.activeRoomCode);
   const currentScreen = useAppStore((s) => s.currentScreen);
@@ -29,16 +34,12 @@ export function useGlobalMessageNotifications() {
           const newMsg = payload.new as any;
           if (!newMsg || !newMsg.content_encrypted) return;
 
-          // 1. Don't notify for own messages or system announcements
-          if (newMsg.sender_id === deviceId || newMsg.sender_id === '__system__') {
+          // 1. Don't process or notify own messages
+          if (newMsg.sender_id === deviceId) {
             return;
           }
 
-          // 2. Check if notification setting is enabled by user
-          const setting = await AsyncStorage.getItem(NOTIF_STORAGE_KEYS.NEW_MESSAGES);
-          if (setting === 'false') return;
-
-          // 3. Lookup room code from rooms table
+          // 2. Lookup room code from rooms table
           const { data: roomData } = await supabase
             .from('rooms')
             .select('code, name')
@@ -49,27 +50,48 @@ export function useGlobalMessageNotifications() {
           if (!roomCode) return;
           const roomName = roomData?.name || `Room ${roomCode}`;
 
-          // 4. Don't notify if the user has left the room, cleared the room, or deleted account
+          // 3. Check if user is a member of this room (not deleted, left, or cleared)
           const localRooms = await getLocalRecentRooms();
           const isMyRoom = localRooms.some((r) => r.code.trim().toLowerCase() === roomCode);
           if (!isMyRoom) {
             return;
           }
 
-          // 5. Don't notify if the user is actively looking at this specific chat room
-          const currentActive = useAppStore.getState().activeRoomCode.trim().toLowerCase();
-          const activeScreen = useAppStore.getState().currentScreen;
-          if (activeScreen === 'chat-room' && currentActive === roomCode) {
-            return;
-          }
-
-          // 6. Decrypt message preview
+          // 4. Decrypt message content
           let decrypted = '';
           try {
             decrypted = decryptMessage(newMsg.content_encrypted, roomCode);
           } catch (e) {
             decrypted = 'New message received';
           }
+
+          const isSystem = newMsg.sender_id === '__system__' || newMsg.sender_name === 'System';
+
+          const formattedMsg: MessageItem = {
+            id: newMsg.id,
+            sender_id: newMsg.sender_id,
+            sender_name: newMsg.sender_name,
+            content: decrypted,
+            is_image: Boolean(newMsg.is_image),
+            is_voice: Boolean(newMsg.is_voice),
+            is_sticker: Boolean(newMsg.is_sticker),
+            is_system: isSystem,
+            created_at: newMsg.created_at || new Date().toISOString(),
+          };
+
+          // 5. PRE-CACHE INSTANTLY into TanStack Query & persistent local storage (0ms)
+          injectIncomingMessageIntoCache(queryClient, newMsg.room_id, roomCode, formattedMsg);
+
+          // 6. Check if user is actively looking at this specific chat room
+          const currentActive = useAppStore.getState().activeRoomCode.trim().toLowerCase();
+          const activeScreen = useAppStore.getState().currentScreen;
+          if (activeScreen === 'chat-room' && currentActive === roomCode) {
+            return; // Suppress notification banner since user is actively in this chat
+          }
+
+          // 7. Check if notification setting is enabled
+          const setting = await AsyncStorage.getItem(NOTIF_STORAGE_KEYS.NEW_MESSAGES);
+          if (setting === 'false') return;
 
           let preview = decrypted;
           if (newMsg.is_image) preview = '📷 Sent a photo';
@@ -78,14 +100,14 @@ export function useGlobalMessageNotifications() {
 
           const sender = newMsg.sender_name || 'Someone';
 
-          // 7. Trigger system notification banner
+          // 8. Deliver high-priority system notification banner
           await triggerLocalMessageNotification(
             roomName,
             `${sender}: ${preview}`,
             { roomCode, roomId: newMsg.room_id }
           );
         } catch (err) {
-          console.warn('Global notification trigger error:', err);
+          console.warn('Global notification dispatcher error:', err);
         }
       })
       .subscribe();
@@ -93,5 +115,5 @@ export function useGlobalMessageNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [deviceId, activeRoomCode, currentScreen]);
+  }, [queryClient, deviceId, activeRoomCode, currentScreen]);
 }

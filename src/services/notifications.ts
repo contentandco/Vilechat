@@ -38,11 +38,14 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
     if (Platform.OS === 'android' && Notifications.setNotificationChannelAsync) {
       await Notifications.setNotificationChannelAsync('default', {
-        name: 'Vile Chat Notifications',
+        name: 'Vile Chat Messages',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF2A6D',
         sound: 'default',
+        enableLights: true,
+        enableVibrate: true,
+        showBadge: true,
       });
     }
 
@@ -69,8 +72,9 @@ export async function triggerLocalMessageNotification(
         title,
         body,
         data: data || {},
-        sound: true,
+        sound: 'default',
         priority: Notifications.AndroidNotificationPriority.MAX,
+        channelId: 'default',
       },
       trigger: null, // Immediate
     });

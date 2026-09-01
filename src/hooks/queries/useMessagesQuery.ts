@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, QueryClient } from '@tanstack/react-query';
 import { MessageItem, ActiveRoomDetail } from '../../types';
 import { fetchRoomMessages, sendEncryptedMessage, generateClientUUID, SendMessageParams } from '../../api/messages';
-import { saveLocalRoomMessages } from '../../services/storage';
+import { saveLocalRoomMessages, getLocalRoomMessages } from '../../services/storage';
 
 export const messageKeys = {
   all: ['messages'] as const,
@@ -9,10 +9,57 @@ export const messageKeys = {
 };
 
 /**
+ * Injects a live incoming message directly into TanStack Query cache,
+ * moves the room to the top of the inbox, and persists to local storage.
+ */
+export function injectIncomingMessageIntoCache(
+  queryClient: QueryClient,
+  roomId: string,
+  roomCode: string,
+  msg: MessageItem
+) {
+  const resolvedKey = roomId || roomCode;
+  if (!resolvedKey) return;
+
+  // 1. Update room messages cache with deduplication & sorting
+  queryClient.setQueryData<MessageItem[]>(
+    messageKeys.room(resolvedKey),
+    (old = []) => {
+      if (old.some((m) => m.id === msg.id)) {
+        return old;
+      }
+      const updated = [...old, msg].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      // Persist updated list to local storage
+      if (roomCode) {
+        saveLocalRoomMessages(roomCode, updated).catch(() => {});
+      }
+      return updated;
+    }
+  );
+
+  // 2. Move room to the top of the inbox and mark unread
+  if (roomCode) {
+    queryClient.setQueriesData<ActiveRoomDetail[]>({ queryKey: ['inbox-rooms'] }, (old = []) => {
+      const cleanCode = roomCode.trim().toLowerCase();
+      const target = old.find((r) => r.code.trim().toLowerCase() === cleanCode);
+      const rest = old.filter((r) => r.code.trim().toLowerCase() !== cleanCode);
+      if (target) {
+        return [{ ...target, hasUnread: true }, ...rest];
+      }
+      return old;
+    });
+  }
+}
+
+/**
  * Hook to query messages for a room with TanStack Query and local persistence.
  */
 export function useRoomMessages(roomId: string, roomCode: string) {
   const resolvedKey = roomId || roomCode;
+  const queryClient = useQueryClient();
+
   return useQuery<MessageItem[]>({
     queryKey: messageKeys.room(resolvedKey),
     queryFn: async () => {
@@ -20,7 +67,8 @@ export function useRoomMessages(roomId: string, roomCode: string) {
       if (roomCode && msgs.length > 0) {
         saveLocalRoomMessages(roomCode, msgs).catch(() => {});
       }
-      return msgs;
+      // Reconcile and sort
+      return msgs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     },
     enabled: Boolean(roomId || roomCode),
     staleTime: 1000 * 60 * 5, // 5 minutes fresh time for 0ms instant display
@@ -44,9 +92,8 @@ export function useSendMessageMutation() {
       return { id: msgId, ...params };
     },
     onMutate: async (params) => {
-      const roomId = params.roomId;
+      const roomId = params.roomId || params.roomCode;
       const msgId = params.id || generateClientUUID();
-      // Ensure params has the assigned id so mutationFn uses the exact same UUID
       params.id = msgId;
 
       await queryClient.cancelQueries({ queryKey: messageKeys.room(roomId) });
@@ -68,15 +115,20 @@ export function useSendMessageMutation() {
         messageKeys.room(roomId),
         (old = []) => {
           if (old.some((m) => m.id === msgId)) return old;
-          return [...old, optimisticMsg];
+          const updated = [...old, optimisticMsg];
+          if (params.roomCode) {
+            saveLocalRoomMessages(params.roomCode, updated).catch(() => {});
+          }
+          return updated;
         }
       );
 
       // When a message is chatted/sent in a room, move that room to the top of the inbox list
       if (params.roomCode) {
         queryClient.setQueriesData<ActiveRoomDetail[]>({ queryKey: ['inbox-rooms'] }, (old = []) => {
-          const target = old.find((r) => r.code.toLowerCase() === params.roomCode.toLowerCase());
-          const rest = old.filter((r) => r.code.toLowerCase() !== params.roomCode.toLowerCase());
+          const cleanCode = params.roomCode.trim().toLowerCase();
+          const target = old.find((r) => r.code.trim().toLowerCase() === cleanCode);
+          const rest = old.filter((r) => r.code.trim().toLowerCase() !== cleanCode);
           if (target) {
             return [target, ...rest];
           }
@@ -111,16 +163,23 @@ export function useLoadEarlierMessagesMutation() {
       beforeCreatedAt: string;
     }) => {
       const earlier = await fetchRoomMessages(roomId, roomCode, 50, beforeCreatedAt);
-      return { roomId, earlier };
+      return { roomId, roomCode, earlier };
     },
-    onSuccess: ({ roomId, earlier }) => {
+    onSuccess: ({ roomId, roomCode, earlier }) => {
       if (earlier.length === 0) return;
+      const resolvedKey = roomId || roomCode;
       queryClient.setQueryData<MessageItem[]>(
-        messageKeys.room(roomId),
+        messageKeys.room(resolvedKey),
         (old = []) => {
           const existingIds = new Set(old.map((m) => m.id));
           const uniqueEarlier = earlier.filter((m) => !existingIds.has(m.id));
-          return [...uniqueEarlier, ...old];
+          const updated = [...uniqueEarlier, ...old].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+          if (roomCode) {
+            saveLocalRoomMessages(roomCode, updated).catch(() => {});
+          }
+          return updated;
         }
       );
     },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MessageItem, ActiveRoomDetail } from '../types';
@@ -19,7 +19,7 @@ import {
 } from '../hooks/queries/useMessagesQuery';
 import { useRenameRoomMutation } from '../hooks/queries/useRoomQuery';
 import { inboxKeys } from '../hooks/queries/useInboxQuery';
-import { setRoomLastRead } from '../services/storage';
+import { setRoomLastRead, saveLocalRoomMessages } from '../services/storage';
 import {
   sendEncryptedMessage,
   sendSystemJoinMessage,
@@ -147,6 +147,14 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     };
     checkAnnouncement();
 
+    // AppState Foreground Reconnect: Catch up on any delta messages missed while offline/backgrounded
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        refetchMessages();
+        markActiveRoomRead();
+      }
+    });
+
     // Subscribe to incoming messages and live Presence
     const unsubscribeMessages = subscribeToRoomMessages(
       roomId,
@@ -157,7 +165,13 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
           if (old.some((m) => m.id === newMsg.id)) {
             return old;
           }
-          return [...old, newMsg];
+          const updated = [...old, newMsg].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+          if (roomCode) {
+            saveLocalRoomMessages(roomCode, updated).catch(() => {});
+          }
+          return updated;
         });
         scrollToBottom(100);
       },
@@ -198,6 +212,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
 
     return () => {
       markActiveRoomRead();
+      appStateSub.remove();
       unsubscribeMessages();
       unsubscribeMeta();
       unsubscribeActions();
