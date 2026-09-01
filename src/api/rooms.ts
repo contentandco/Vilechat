@@ -143,11 +143,19 @@ export async function setRoomPausedInDB(roomCode: string, isPaused: boolean) {
 export async function deleteRoomPermanently(roomId: string, roomCode: string) {
   try {
     const channel = supabase.channel(`room_actions_${roomId}`);
-    await channel.send({
-      type: 'broadcast',
-      event: 'room_deleted',
-      payload: { roomCode },
-    });
+    if ((channel as any).httpSend) {
+      await (channel as any).httpSend({
+        type: 'broadcast',
+        event: 'room_deleted',
+        payload: { roomCode },
+      });
+    } else {
+      await channel.send({
+        type: 'broadcast',
+        event: 'room_deleted',
+        payload: { roomCode },
+      });
+    }
   } catch (e) {}
 
   const { error } = await supabase
@@ -162,12 +170,22 @@ export async function deleteRoomPermanently(roomId: string, roomCode: string) {
  * Broadcasts a kick event to remove a specific user from the room.
  */
 export async function broadcastKickUser(roomId: string, targetUserId: string) {
-  const channel = supabase.channel(`room_actions_${roomId}`);
-  await channel.send({
-    type: 'broadcast',
-    event: 'user_kicked',
-    payload: { targetUserId },
-  });
+  try {
+    const channel = supabase.channel(`room_actions_${roomId}`);
+    if ((channel as any).httpSend) {
+      await (channel as any).httpSend({
+        type: 'broadcast',
+        event: 'user_kicked',
+        payload: { targetUserId },
+      });
+    } else {
+      await channel.send({
+        type: 'broadcast',
+        event: 'user_kicked',
+        payload: { targetUserId },
+      });
+    }
+  } catch (e) {}
 }
 
 /**
