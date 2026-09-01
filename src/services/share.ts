@@ -1,7 +1,7 @@
 import { Share, Clipboard, Platform, ToastAndroid, Alert } from 'react-native';
 
 export function getShareUrl(roomCode: string): string {
-  return `https://vailchat.com/join?code=${roomCode}`;
+  return `https://vilechat.app/join?code=${roomCode}`;
 }
 
 /**
@@ -10,12 +10,12 @@ export function getShareUrl(roomCode: string): string {
 export async function shareRoomLink(roomCode: string): Promise<void> {
   try {
     const shareUrl = getShareUrl(roomCode);
-    const shareText = `Send me anonymous messages on Vailchat! 🤫💬\n\nLink: ${shareUrl}\nSecret Room Code: ${roomCode}`;
+    const shareText = `Send me anonymous messages on Vile Chat! 🤫💬\n${shareUrl}`;
 
     await Share.share({
       message: shareText,
       url: shareUrl,
-      title: 'Send me anonymous messages on Vailchat!',
+      title: 'Send me anonymous messages on Vile Chat!',
     });
   } catch (err) {
     console.log('Share error:', err);

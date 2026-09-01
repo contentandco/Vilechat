@@ -495,14 +495,12 @@ function MainApp() {
     }
   };
 
-  const handleUniversalShare = async () => {
+  const handleUniversalShare = () => {
     const targetCode = activeRoomCode || whisperRoomCode;
-    try {
-      await createRoomMutation({ code: targetCode });
-    } catch (e) {
-      console.warn('createRoomInDB warning on universal share:', e);
-    }
-    await shareRoomLink(targetCode);
+    // 1. Open native share sheet instantly (0ms)
+    shareRoomLink(targetCode);
+    // 2. Ensure room exists in database asynchronously in background
+    createRoomMutation({ code: targetCode }).catch(() => {});
   };
 
   const handleSaveCustomRoomName = async (nameOverride?: string) => {
