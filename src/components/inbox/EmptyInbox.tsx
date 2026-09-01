@@ -17,11 +17,11 @@ export const EmptyInbox: React.FC<EmptyInboxProps> = ({ onGoToWhisper }) => {
         Share your whisper card link on your story to start receiving anonymous messages!
       </Text>
       <TouchableOpacity 
-        style={styles.emptyShareShortcutBtn}
+        style={styles.emptyTextLink}
         onPress={onGoToWhisper}
-        activeOpacity={0.85}
+        activeOpacity={0.7}
       >
-        <Text style={styles.emptyShareShortcutText}>Go to Whisper Card</Text>
+        <Text style={styles.emptyTextLinkText}>Go to Whisper Card →</Text>
       </TouchableOpacity>
     </View>
   );
@@ -56,16 +56,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-  emptyShareShortcutBtn: {
-    marginTop: 14,
-    backgroundColor: Colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 22,
-    borderRadius: 20,
+  emptyTextLink: {
+    marginTop: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
-  emptyShareShortcutText: {
-    color: Colors.textWhite,
-    fontSize: 13,
-    fontWeight: '700',
+  emptyTextLinkText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'normal',
+    textAlign: 'center',
   },
 });
