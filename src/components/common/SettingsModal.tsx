@@ -33,6 +33,11 @@ import { ActiveRoomDetail } from '../../types';
 import { getPausedRoomCodes, savePausedRoomCodes, getLocalRecentRooms } from '../../services/storage';
 import { setRoomPausedInDB } from '../../api/rooms';
 import { useAppStore } from '../../store/useAppStore';
+import {
+  requestNotificationPermission,
+  scheduleShareReminderNotification,
+  triggerTeamVileNotification,
+} from '../../services/notifications';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -42,7 +47,7 @@ interface SettingsModalProps {
   currentWhisperCode?: string;
 }
 
-const NOTIF_STORAGE_KEYS = {
+export const NOTIF_STORAGE_KEYS = {
   REMINDERS: 'vailchat_notif_reminders',
   NEW_MESSAGES: 'vailchat_notif_new_messages',
   TEAM_VAILCHAT: 'vailchat_notif_team_vailchat',
@@ -55,6 +60,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   activeRooms = [],
   currentWhisperCode = '',
 }) => {
+  const insets = useSafeAreaInsets();
   const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
   const [remindersEnabled, setRemindersEnabled] = useState<boolean>(true);
   const [newMessagesEnabled, setNewMessagesEnabled] = useState<boolean>(true);
@@ -93,19 +99,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [visible, showPauseLinkModal]);
 
-  const handleToggleReminders = (value: boolean) => {
+  const handleToggleReminders = async (value: boolean) => {
     setRemindersEnabled(value);
-    AsyncStorage.setItem(NOTIF_STORAGE_KEYS.REMINDERS, String(value)).catch(() => {});
+    await AsyncStorage.setItem(NOTIF_STORAGE_KEYS.REMINDERS, String(value)).catch(() => {});
+    if (value) {
+      await requestNotificationPermission();
+      await scheduleShareReminderNotification();
+    }
   };
 
-  const handleToggleNewMessages = (value: boolean) => {
+  const handleToggleNewMessages = async (value: boolean) => {
     setNewMessagesEnabled(value);
-    AsyncStorage.setItem(NOTIF_STORAGE_KEYS.NEW_MESSAGES, String(value)).catch(() => {});
+    await AsyncStorage.setItem(NOTIF_STORAGE_KEYS.NEW_MESSAGES, String(value)).catch(() => {});
+    if (value) {
+      await requestNotificationPermission();
+    }
   };
 
-  const handleToggleTeamVailchat = (value: boolean) => {
+  const handleToggleTeamVailchat = async (value: boolean) => {
     setTeamVailchatEnabled(value);
-    AsyncStorage.setItem(NOTIF_STORAGE_KEYS.TEAM_VAILCHAT, String(value)).catch(() => {});
+    await AsyncStorage.setItem(NOTIF_STORAGE_KEYS.TEAM_VAILCHAT, String(value)).catch(() => {});
+    if (value) {
+      await requestNotificationPermission();
+      await triggerTeamVileNotification();
+    }
   };
 
   const togglePauseRoom = async (code: string) => {
@@ -184,7 +201,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     displayName: code === effectiveWhisperCode && (!name || name === code) ? 'Active Whisper Link' : name,
   }));
 
-  const insets = useSafeAreaInsets();
   const topPadding = Math.max(insets.top + 8, Platform.OS === 'ios' ? 54 : 48);
 
   const isCurrentWhisperPaused = pausedCodes.includes(effectiveWhisperCode);
@@ -362,7 +378,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         >
           <View style={styles.notifContainer}>
             {/* Notifications Header */}
-            <View style={styles.notifHeader}>
+            <View style={[styles.notifHeader, { paddingTop: Math.max(insets.top, 24) + 12 }]}>
               <TouchableOpacity 
                 style={styles.backBtn} 
                 onPress={() => setShowNotificationsModal(false)} 
@@ -381,15 +397,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             >
               {/* Notification Options Card */}
               <View style={styles.notifCard}>
-                {/* 1. Reminders to post */}
+                {/* 1. Reminders to share */}
                 <View style={styles.notifRow}>
                   <View style={styles.notifLeft}>
                     <View style={styles.notifIconCircle}>
                       <HugeiconsIcon icon={Add01Icon} size={18} color={Colors.textPrimary} />
                     </View>
                     <View style={styles.notifTextContainer}>
-                      <Text style={styles.notifTitle}>Reminders to post</Text>
-                      <Text style={styles.notifSubtitle}>Share your link 😛 Tap here</Text>
+                      <Text style={styles.notifTitle}>Reminders to share</Text>
+                      <Text style={styles.notifSubtitle}>Share your link & talk privately with friends 🤫</Text>
                     </View>
                   </View>
                   <Switch
@@ -410,7 +426,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </View>
                     <View style={styles.notifTextContainer}>
                       <Text style={styles.notifTitle}>New messages</Text>
-                      <Text style={styles.notifSubtitle}>You have a new message! Tap to open</Text>
+                      <Text style={styles.notifSubtitle}>Get notified when someone sends a message</Text>
                     </View>
                   </View>
                   <Switch
@@ -423,16 +439,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <View style={styles.notifSeparator} />
 
-                {/* 3. Team Vailchat messages */}
+                {/* 3. Team Vile Chat */}
                 <View style={styles.notifRow}>
                   <View style={styles.notifLeft}>
                     <View style={styles.notifIconCircle}>
                       <HugeiconsIcon icon={FavouriteIcon} size={18} color={Colors.textPrimary} />
                     </View>
                     <View style={styles.notifTextContainer}>
-                      <Text style={styles.notifTitle}>Team Vailchat messages</Text>
+                      <Text style={styles.notifTitle}>Team Vile Chat</Text>
                       <Text style={styles.notifSubtitle}>
-                        Vailchat will occasionally send messages to make your Q&A game more fun!
+                        Updates, tips, and secret drops from the Vile team ⚡
                       </Text>
                     </View>
                   </View>

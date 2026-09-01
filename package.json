@@ -16,6 +16,7 @@
     "expo-image-picker": "^57.0.14",
     "expo-linear-gradient": "^57.0.1",
     "expo-linking": "^57.0.8",
+    "expo-notifications": "~57.0.15",
     "expo-status-bar": "~57.0.1",
     "lucide-react-native": "^1.37.0",
     "react": "19.2.3",

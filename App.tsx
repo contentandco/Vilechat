@@ -46,6 +46,8 @@ import {
   useRenameRoomMutation,
 } from './src/hooks/queries/useRoomQuery';
 import { messageKeys } from './src/hooks/queries/useMessagesQuery';
+import { useGlobalMessageNotifications } from './src/hooks/useGlobalMessageNotifications';
+import * as Notifications from 'expo-notifications';
 
 // Screens and Modals
 import { SplashScreen } from './src/screens/SplashScreen';
@@ -61,6 +63,7 @@ import { RoomCreatedModal } from './src/components/common/RoomCreatedModal';
 import { SettingsModal } from './src/components/common/SettingsModal';
 
 function MainApp() {
+  useGlobalMessageNotifications();
   const qc = useQueryClient();
 
   // Zustand Store State & Actions
@@ -313,6 +316,20 @@ function MainApp() {
 
     return () => subscription.remove();
   }, []);
+
+  // Notification Response Listener (Opens room when tapping notification)
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as any;
+      if (data?.roomCode) {
+        handleJoinRoom(data.roomCode);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [verifiedActiveRooms, whisperRoomCode]);
 
   // Room Actions
   const handleJoinRoom = async (code: string = roomCodeInput) => {
