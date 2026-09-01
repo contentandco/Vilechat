@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: https://iozofoybmvyerkpieoov.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_Jz-MIKjPSrPJWOjHW4fCTg_WtvITSsn
 
     steps:
       - name: ⬇️ Checkout repository

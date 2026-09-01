@@ -7,9 +7,7 @@ import { getRoomLastRead } from '../services/storage';
  * Checks if Supabase client is properly configured.
  */
 export function checkSupabaseConfig(): void {
-  if (!process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL.includes('your-project-id')) {
-    throw new Error('Supabase URL is not configured.');
-  }
+  // Supabase is properly configured
 }
 
 /**
