@@ -378,7 +378,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         >
           <View style={styles.notifContainer}>
             {/* Notifications Header */}
-            <View style={[styles.notifHeader, { paddingTop: Math.max(insets.top, 24) + 12 }]}>
+            <View style={styles.notifHeader}>
               <TouchableOpacity 
                 style={styles.backBtn} 
                 onPress={() => setShowNotificationsModal(false)} 
@@ -816,8 +816,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 54 : 20,
-    paddingBottom: 16,
+    paddingTop: Platform.OS === 'ios' ? 54 : 14,
+    paddingBottom: 10,
   },
   notifHeaderTitle: {
     fontSize: 20,
@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
   },
   notifScrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 8,
     paddingBottom: 40,
   },
   notifCard: {
