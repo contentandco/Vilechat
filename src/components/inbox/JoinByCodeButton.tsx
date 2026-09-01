@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native';
 import { Colors } from '../../constants/theme';
 
 interface JoinByCodeButtonProps {
@@ -22,7 +22,8 @@ export const JoinByCodeButton: React.FC<JoinByCodeButtonProps> = ({ onPress }) =
 
 const styles = StyleSheet.create({
   bottomWhoSentContainer: {
-    paddingVertical: 16,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 38 : 32,
     paddingHorizontal: 20,
     backgroundColor: Colors.background,
     marginTop: 'auto',
