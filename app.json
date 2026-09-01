@@ -33,12 +33,6 @@
     },
     "plugins": [
       [
-        "expo-av",
-        {
-          "microphonePermission": "Allow Vile Chat to access your microphone to record voice notes."
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "photosPermission": "Allow Vile Chat to access your photos to send images."
