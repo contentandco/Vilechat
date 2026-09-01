@@ -11,9 +11,14 @@ try {
 }
 
 try {
-  FileSystem = require('expo-file-system/legacy');
+  FileSystem = require('expo-file-system');
+  if (!FileSystem.readAsStringAsync && FileSystem.legacy) {
+    FileSystem = FileSystem.legacy;
+  }
 } catch (e) {
-  console.log('FileSystem module is not available in this Expo Go environment.');
+  try {
+    FileSystem = require('expo-file-system/legacy');
+  } catch (err) {}
 }
 
 export function useAudioRecorder(onRecordingComplete: (base64AudioUrl: string) => Promise<void>) {
