@@ -545,131 +545,138 @@ function MainApp() {
       <RNSafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
 
-        {/* Step 1: Welcome / Splash Screen */}
-        {currentScreen === 'welcome' && (
-          <WelcomeScreen onGetStarted={() => setCurrentScreen('onboarding-vibe')} />
+        {/* Brand Splash Screen on App Launch */}
+        {isSplashActive ? (
+          <SplashScreen onFinish={() => setIsSplashActive(false)} duration={1200} />
+        ) : (
+          <>
+            {/* Step 1: Welcome / Splash Screen */}
+            {currentScreen === 'welcome' && (
+              <WelcomeScreen onGetStarted={() => setCurrentScreen('onboarding-vibe')} />
+            )}
+
+            {/* Step 2: Daily Vibe Screen */}
+            {currentScreen === 'onboarding-vibe' && (
+              <OnboardingVibeScreen
+                onBack={() => setCurrentScreen('welcome')}
+                onContinue={handleVibeSelected}
+              />
+            )}
+
+            {/* Step 3: Choose Your Username Screen */}
+            {currentScreen === 'onboarding-username' && (
+              <OnboardingUsernameScreen
+                onBack={() => setCurrentScreen('onboarding-vibe')}
+                onContinue={handleUsernameSelected}
+                initialUsername={userNickname}
+              />
+            )}
+
+            {/* Step 4: Choose Your Profile Picture Screen */}
+            {currentScreen === 'onboarding-avatar' && (
+              <OnboardingAvatarScreen
+                onBack={() => setCurrentScreen('onboarding-username')}
+                onContinue={handleAvatarSelected}
+                onSkip={handleSkipAvatar}
+                initialAvatar={userAvatar}
+              />
+            )}
+
+            {/* Main App: Landing Screen */}
+            {currentScreen === 'landing' && (
+              <LandingScreen
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                themeIndex={0}
+                promptIndex={promptIndex}
+                setPromptIndex={setPromptIndex}
+                whisperRoomCode={whisperRoomCode}
+                activeRoomCode={activeRoomCode}
+                userNickname={userNickname}
+                userAvatar={userAvatar}
+                onChangeAvatar={handleChangeAvatar}
+                onCreateNewWhisperRoom={handleCreateNewWhisperRoom}
+                onUniversalShare={handleUniversalShare}
+                roomCreatedFeedback={roomCreatedFeedback}
+                loading={loading}
+                verifiedActiveRooms={verifiedActiveRooms}
+                checkingHistory={checkingHistory}
+                isInboxEditMode={isInboxEditMode}
+                setIsInboxEditMode={setIsInboxEditMode}
+                selectedRoomCodes={selectedRoomCodes}
+                setSelectedRoomCodes={setSelectedRoomCodes}
+                toggleSelectRoom={toggleSelectRoom}
+                onDeleteSelectedRooms={handleDeleteSelectedRooms}
+                onJoinRoom={handleJoinRoom}
+                onOpenJoinCodeModal={() => setShowJoinCodeModal(true)}
+                onOpenSettings={() => setShowSettingsModal(true)}
+                onRefreshInbox={refetchInbox}
+                isRefetchingInbox={isRefetchingInbox}
+              />
+            )}
+
+            {/* Room Dashboard Screen */}
+            {currentScreen === 'room-dashboard' && (
+              <RoomDashboardScreen
+                activeRoomCode={activeRoomCode}
+                timeRemaining={timeRemaining}
+                onLeaveRoom={handleLeaveRoom}
+                onEnterChatRoom={() => setCurrentScreen('chat-room')}
+              />
+            )}
+
+            {/* Chat Room Screen */}
+            {currentScreen === 'chat-room' && (
+              <ChatRoomScreen
+                roomId={activeRoomId}
+                roomCode={activeRoomCode}
+                roomName={activeRoomName}
+                setRoomName={setActiveRoomName}
+                userId={userId}
+                deviceId={deviceId}
+                userNickname={userNickname}
+                timeRemaining={timeRemaining}
+                isCreator={isCurrentRoomCreator}
+                onBack={handleLeaveRoom}
+                onLeaveRoom={handleLeaveAndRemoveRoom}
+                onDestroyRoom={handleDestroyAndRemoveRoom}
+                showRoomInfo={showRoomInfo}
+                setShowRoomInfo={setShowRoomInfo}
+              />
+            )}
+
+            {/* Settings Modal */}
+            <SettingsModal
+              visible={showSettingsModal}
+              onClose={() => setShowSettingsModal(false)}
+              onDeleteAccount={handleDeleteAccount}
+              activeRooms={verifiedActiveRooms}
+              currentWhisperCode={whisperRoomCode}
+            />
+
+            {/* Join by Code Modal */}
+            <JoinCodeModal
+              visible={showJoinCodeModal}
+              onClose={() => setShowJoinCodeModal(false)}
+              roomCodeInput={roomCodeInput}
+              setRoomCodeInput={setRoomCodeInput}
+              onJoin={handleJoinRoom}
+              loading={loading}
+            />
+
+            {/* Room Created Modal */}
+            <RoomCreatedModal
+              visible={showCreatedModal}
+              onClose={() => setShowCreatedModal(false)}
+              customRoomNameInput={customRoomNameInput}
+              setCustomRoomNameInput={setCustomRoomNameInput}
+              onSaveName={handleSaveCustomRoomName}
+              nameSavedFeedback={nameSavedFeedback}
+              onShareLink={handleUniversalShare}
+              onGoToInbox={() => setActiveTab('inbox')}
+            />
+          </>
         )}
-
-        {/* Step 2: Daily Vibe Screen */}
-        {currentScreen === 'onboarding-vibe' && (
-          <OnboardingVibeScreen
-            onBack={() => setCurrentScreen('welcome')}
-            onContinue={handleVibeSelected}
-          />
-        )}
-
-        {/* Step 3: Choose Your Username Screen */}
-        {currentScreen === 'onboarding-username' && (
-          <OnboardingUsernameScreen
-            onBack={() => setCurrentScreen('onboarding-vibe')}
-            onContinue={handleUsernameSelected}
-            initialUsername={userNickname}
-          />
-        )}
-
-        {/* Step 4: Choose Your Profile Picture Screen */}
-        {currentScreen === 'onboarding-avatar' && (
-          <OnboardingAvatarScreen
-            onBack={() => setCurrentScreen('onboarding-username')}
-            onContinue={handleAvatarSelected}
-            onSkip={handleSkipAvatar}
-            initialAvatar={userAvatar}
-          />
-        )}
-
-        {/* Main App: Landing Screen */}
-        {currentScreen === 'landing' && (
-          <LandingScreen
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            themeIndex={0}
-            promptIndex={promptIndex}
-            setPromptIndex={setPromptIndex}
-            whisperRoomCode={whisperRoomCode}
-            activeRoomCode={activeRoomCode}
-            userNickname={userNickname}
-            userAvatar={userAvatar}
-            onChangeAvatar={handleChangeAvatar}
-            onCreateNewWhisperRoom={handleCreateNewWhisperRoom}
-            onUniversalShare={handleUniversalShare}
-            roomCreatedFeedback={roomCreatedFeedback}
-            loading={loading}
-            verifiedActiveRooms={verifiedActiveRooms}
-            checkingHistory={checkingHistory}
-            isInboxEditMode={isInboxEditMode}
-            setIsInboxEditMode={setIsInboxEditMode}
-            selectedRoomCodes={selectedRoomCodes}
-            setSelectedRoomCodes={setSelectedRoomCodes}
-            toggleSelectRoom={toggleSelectRoom}
-            onDeleteSelectedRooms={handleDeleteSelectedRooms}
-            onJoinRoom={handleJoinRoom}
-            onOpenJoinCodeModal={() => setShowJoinCodeModal(true)}
-            onOpenSettings={() => setShowSettingsModal(true)}
-            onRefreshInbox={refetchInbox}
-            isRefetchingInbox={isRefetchingInbox}
-          />
-        )}
-
-        {/* Room Dashboard Screen */}
-        {currentScreen === 'room-dashboard' && (
-          <RoomDashboardScreen
-            activeRoomCode={activeRoomCode}
-            timeRemaining={timeRemaining}
-            onLeaveRoom={handleLeaveRoom}
-            onEnterChatRoom={() => setCurrentScreen('chat-room')}
-          />
-        )}
-
-        {/* Chat Room Screen */}
-        {currentScreen === 'chat-room' && (
-          <ChatRoomScreen
-            roomId={activeRoomId}
-            roomCode={activeRoomCode}
-            roomName={activeRoomName}
-            setRoomName={setActiveRoomName}
-            userId={userId}
-            deviceId={deviceId}
-            userNickname={userNickname}
-            timeRemaining={timeRemaining}
-            isCreator={isCurrentRoomCreator}
-            onBack={handleLeaveRoom}
-            onLeaveRoom={handleLeaveAndRemoveRoom}
-            onDestroyRoom={handleDestroyAndRemoveRoom}
-            showRoomInfo={showRoomInfo}
-            setShowRoomInfo={setShowRoomInfo}
-          />
-        )}
-
-        {/* Settings Modal */}
-        <SettingsModal
-          visible={showSettingsModal}
-          onClose={() => setShowSettingsModal(false)}
-          onDeleteAccount={handleDeleteAccount}
-          activeRooms={verifiedActiveRooms}
-          currentWhisperCode={whisperRoomCode}
-        />
-
-        {/* Join by Code Modal */}
-        <JoinCodeModal
-          visible={showJoinCodeModal}
-          onClose={() => setShowJoinCodeModal(false)}
-          roomCodeInput={roomCodeInput}
-          setRoomCodeInput={setRoomCodeInput}
-          onJoin={handleJoinRoom}
-          loading={loading}
-        />
-
-        {/* Room Created Modal */}
-        <RoomCreatedModal
-          visible={showCreatedModal}
-          onClose={() => setShowCreatedModal(false)}
-          customRoomNameInput={customRoomNameInput}
-          setCustomRoomNameInput={setCustomRoomNameInput}
-          onSaveName={handleSaveCustomRoomName}
-          nameSavedFeedback={nameSavedFeedback}
-          onShareLink={handleUniversalShare}
-          onGoToInbox={() => setActiveTab('inbox')}
-        />
       </RNSafeAreaView>
     </SafeAreaProvider>
   );
