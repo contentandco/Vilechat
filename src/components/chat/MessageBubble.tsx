@@ -14,7 +14,16 @@ interface MessageBubbleProps {
   onPlayAudio: (id: string, content: string) => void;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({
+const formatMsgTime = (dateStr: string) => {
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  } catch (e) {
+    return '';
+  }
+};
+
+export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   item,
   isMe,
   userNickname,
@@ -23,14 +32,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isPlayingAudio,
   onPlayAudio,
 }) => {
-  const formatMsgTime = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    } catch (e) {
-      return '';
-    }
-  };
 
   // Render centered sleek pill for system announcements (e.g. "@user joined" or "You joined")
   if (item.is_system) {
@@ -123,7 +124,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   systemMessageRow: {

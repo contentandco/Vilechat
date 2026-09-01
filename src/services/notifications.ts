@@ -102,12 +102,25 @@ const ENGAGEMENT_NOTIFICATIONS = [
   },
 ];
 
+const ENGAGEMENT_NOTIF_SCHEDULED_KEY = 'vailchat_engagement_scheduled_date';
+
 /**
  * Schedules engaging recurring notifications throughout the day.
+ * Guards against re-scheduling on every app launch — only runs once per calendar day.
  */
 export async function scheduleDailyEngagementNotifications(): Promise<void> {
   try {
     if (!Notifications?.scheduleNotificationAsync || !Notifications?.cancelAllScheduledNotificationsAsync) return;
+
+    // Guard: only schedule once per calendar day
+    const today = new Date().toDateString();
+    let lastScheduled: string | null = null;
+    try {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      lastScheduled = await AsyncStorage.getItem(ENGAGEMENT_NOTIF_SCHEDULED_KEY);
+      if (lastScheduled === today) return; // Already scheduled today — skip
+      await AsyncStorage.setItem(ENGAGEMENT_NOTIF_SCHEDULED_KEY, today);
+    } catch (e) {}
 
     // Cancel existing scheduled engagement notifications before rescheduling
     await Notifications.cancelAllScheduledNotificationsAsync();
@@ -118,7 +131,8 @@ export async function scheduleDailyEngagementNotifications(): Promise<void> {
       content: {
         title: midItem.title,
         body: midItem.body,
-        sound: true,
+        sound: 'default',
+        channelId: 'default',
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -133,7 +147,8 @@ export async function scheduleDailyEngagementNotifications(): Promise<void> {
       content: {
         title: eveItem.title,
         body: eveItem.body,
-        sound: true,
+        sound: 'default',
+        channelId: 'default',
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,

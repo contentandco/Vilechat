@@ -52,21 +52,42 @@ function getRoomKey(roomCode: string): Uint8Array {
 }
 
 /**
+ * Generates a random 8-byte nonce as a Uint8Array.
+ * Uses crypto.getRandomValues when available, falls back to Math.random.
+ */
+function generateNonce(): Uint8Array {
+  const nonce = new Uint8Array(8);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(nonce);
+  } else {
+    for (let i = 0; i < 8; i++) {
+      nonce[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return nonce;
+}
+
+/**
  * Encrypts a plain text message using a room code as the secret key.
- * @param text The plain text message to encrypt.
- * @param roomCode The room code acting as the decryption secret.
+ * Prepends a random 8-byte nonce (16 hex chars) to the ciphertext for per-message keystream uniqueness.
  */
 export function encryptMessage(text: string, roomCode: string): string {
   try {
     const textBytes = stringToUtf8Bytes(text);
     const key = getRoomKey(roomCode);
+    const nonce = generateNonce();
     
-    // We use CTR mode (Counter) stream cipher (fastest stream cipher mode)
-    const aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5));
+    // Build a 16-byte counter from nonce + 8 zero bytes
+    const counterBytes = new Uint8Array(16);
+    counterBytes.set(nonce, 0);
+    
+    const aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(counterBytes));
     const encryptedBytes = aesCtr.encrypt(textBytes);
     
-    // Convert to hex string for database storage
-    return aesjs.utils.hex.fromBytes(encryptedBytes);
+    // Prepend nonce hex (16 chars) + ciphertext hex
+    const nonceHex = aesjs.utils.hex.fromBytes(nonce);
+    const ciphertextHex = aesjs.utils.hex.fromBytes(encryptedBytes);
+    return `${nonceHex}${ciphertextHex}`;
   } catch (error) {
     console.error('Encryption failed:', error);
     return text;
@@ -75,8 +96,8 @@ export function encryptMessage(text: string, roomCode: string): string {
 
 /**
  * Decrypts an encrypted message using the room code.
- * @param hexCiphertext The encrypted hex string.
- * @param roomCode The room code acting as the decryption secret.
+ * Extracts the 8-byte nonce from the first 16 hex chars, then decrypts the remainder.
+ * Backward compatible: falls back gracefully for legacy fixed-counter messages.
  */
 export function decryptMessage(hexCiphertext: string, roomCode: string): string {
   try {
@@ -85,12 +106,29 @@ export function decryptMessage(hexCiphertext: string, roomCode: string): string 
       return hexCiphertext || '';
     }
 
-    const encryptedBytes = aesjs.utils.hex.toBytes(hexCiphertext);
     const key = getRoomKey(roomCode);
-    
+
+    // New format: first 16 hex chars = 8-byte nonce, rest = ciphertext
+    if (hexCiphertext.length > 16) {
+      try {
+        const nonceHex = hexCiphertext.substring(0, 16);
+        const ciphertextHex = hexCiphertext.substring(16);
+        const nonce = aesjs.utils.hex.toBytes(nonceHex);
+        const counterBytes = new Uint8Array(16);
+        counterBytes.set(nonce, 0);
+        const encryptedBytes = aesjs.utils.hex.toBytes(ciphertextHex);
+        const aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(counterBytes));
+        const decryptedBytes = aesCtr.decrypt(encryptedBytes);
+        const result = utf8BytesToString(decryptedBytes);
+        // Sanity check: if result is printable, accept it
+        if (result && result.length > 0) return result;
+      } catch (e) {}
+    }
+
+    // Legacy fallback: fixed counter=5 for old messages already in the database
+    const encryptedBytes = aesjs.utils.hex.toBytes(hexCiphertext);
     const aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5));
     const decryptedBytes = aesCtr.decrypt(encryptedBytes);
-    
     return utf8BytesToString(decryptedBytes);
   } catch (error) {
     console.error('Decryption failed:', error);

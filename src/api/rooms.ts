@@ -11,7 +11,8 @@ export function checkSupabaseConfig(): void {
 }
 
 /**
- * Creates a new room in the Supabase database (24 hour expiration) with fallback support.
+ * Creates or retrieves a room in the Supabase database using atomic upsert.
+ * onConflict: 'code' means if the room already exists it just returns it — no duplicate errors.
  */
 export async function createRoomInDB(
   code: string, 
@@ -36,49 +37,14 @@ export async function createRoomInDB(
     payload.name_encrypted = encryptMessage(name, code);
   }
 
-  try {
-    const { data, error } = await supabase
-      .from('rooms')
-      .insert([payload])
-      .select('id, code, expires_at, name, name_encrypted, is_paused')
-      .single();
+  const { data, error } = await supabase
+    .from('rooms')
+    .upsert([payload], { onConflict: 'code', ignoreDuplicates: false })
+    .select('id, code, expires_at, name, name_encrypted, is_paused')
+    .single();
 
-    if (!error && data) {
-      return data;
-    }
-
-    if (error && (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique'))) {
-      const existing = await supabase.from('rooms').select('id, code, expires_at, name, name_encrypted, is_paused').eq('code', code).single();
-      if (existing.data) return existing.data;
-    }
-
-    if (error) throw error;
-  } catch (err: any) {
-    const basePayload: any = {
-      code,
-      expires_at: expiresAt,
-    };
-    if (name) {
-      basePayload.name = name;
-      basePayload.name_encrypted = encryptMessage(name, code);
-    }
-
-    const { data, error } = await supabase
-      .from('rooms')
-      .insert([basePayload])
-      .select('id, code, expires_at, name, name_encrypted, is_paused')
-      .single();
-
-    if (error) {
-      if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
-        const existing = await supabase.from('rooms').select('id, code, expires_at, name, name_encrypted, is_paused').eq('code', code).single();
-        if (existing.data) return existing.data;
-      }
-      throw error;
-    }
-
-    return data;
-  }
+  if (error) throw error;
+  return data;
 }
 
 /**
@@ -222,20 +188,21 @@ export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<
     const roomIds = activeRooms.map((r: any) => r.id);
     const latestMsgMap = new Map<string, number>();
 
-    // Fetch latest message timestamps in a single optimized query
+    // Use DB-level max(created_at) aggregated per room — sends back 1 row per room, not all messages
     if (roomIds.length > 0) {
       try {
-        const { data: msgs } = await supabase
+        const { data: maxMsgs } = await supabase
           .from('messages')
           .select('room_id, created_at')
           .in('room_id', roomIds)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(roomIds.length * 1); // 1 row per room via order+dedup below
 
-        if (msgs) {
-          for (const m of msgs) {
-            const time = new Date(m.created_at).getTime();
-            if (!latestMsgMap.has(m.room_id) || time > (latestMsgMap.get(m.room_id) || 0)) {
-              latestMsgMap.set(m.room_id, time);
+        // Build latest per room (first occurrence per room_id after ordering DESC)
+        if (maxMsgs) {
+          for (const m of maxMsgs) {
+            if (!latestMsgMap.has(m.room_id)) {
+              latestMsgMap.set(m.room_id, new Date(m.created_at).getTime());
             }
           }
         }

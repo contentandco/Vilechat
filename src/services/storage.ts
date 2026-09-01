@@ -74,15 +74,20 @@ async function safeRemoveItem(key: string): Promise<void> {
 }
 
 /**
- * Helper to generate cryptographically strong unique device key
+ * Generates a cryptographically strong unique device key using crypto.getRandomValues.
  */
 export function generateUniqueDeviceId(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let rand = '';
-  for (let i = 0; i < 28; i++) {
-    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    // Fallback for environments without Web Crypto
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
   }
-  return `vail_dev_${Date.now()}_${rand}`;
+  const hex = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `vail_dev_${Date.now()}_${hex}`;
 }
 
 /**

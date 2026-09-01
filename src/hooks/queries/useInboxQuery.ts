@@ -51,8 +51,8 @@ export function useInboxRooms(deviceId: string) {
       return verifyActiveRoomsFromDB(combined);
     },
     enabled: Boolean(deviceId),
-    staleTime: 1000 * 30, // 30 seconds fresh
-    gcTime: 1000 * 60 * 15, // 15 minutes garbage collection
+    staleTime: 1000 * 60 * 5, // 5 minutes — realtime & optimistic updates keep inbox live
+    gcTime: 1000 * 60 * 30, // 30 minutes garbage collection
   });
 }
 

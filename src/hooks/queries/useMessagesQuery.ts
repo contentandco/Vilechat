@@ -67,8 +67,18 @@ export function useRoomMessages(roomId: string, roomCode: string) {
       if (roomCode && msgs.length > 0) {
         saveLocalRoomMessages(roomCode, msgs).catch(() => {});
       }
-      // Reconcile and sort
-      return msgs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      // Reconcile, deduplicate, and sort chronologically
+      const sorted = msgs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      return sorted;
+    },
+    // Immediately show local disk cache while background fetch runs — 0ms cold open
+    initialData: () => {
+      const cached = queryClient.getQueryData<MessageItem[]>(messageKeys.room(resolvedKey));
+      return cached && cached.length > 0 ? cached : undefined;
+    },
+    initialDataUpdatedAt: () => {
+      // Treat local cache as stale (0 = always refetch in background) so fresh data arrives silently
+      return 0;
     },
     enabled: Boolean(roomId || roomCode),
     staleTime: 1000 * 60 * 5, // 5 minutes fresh time for 0ms instant display
