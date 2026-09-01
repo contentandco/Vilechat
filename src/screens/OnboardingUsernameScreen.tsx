@@ -59,8 +59,8 @@ export const OnboardingUsernameScreen: React.FC<OnboardingUsernameScreenProps> =
             placeholderTextColor="#6F7B8C"
             value={usernameInput.replace(/^@+/, '')}
             onChangeText={(text) => setUsernameInput(text.replace(/^@+/, ''))}
-            selectionColor="#FFFFFF"
-            cursorColor="#FFFFFF"
+            selectionColor={Colors.primary}
+            cursorColor={Colors.primary}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus={true}
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.primary,
     paddingVertical: 18,
     borderRadius: 32,
     alignItems: 'center',
@@ -155,16 +155,16 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   continueBtnDisabled: {
-    backgroundColor: '#354359',
-    opacity: 0.7,
+    backgroundColor: '#232D3F',
+    opacity: 0.6,
   },
   continueBtnText: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: 'normal',
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
   continueBtnTextDisabled: {
-    color: '#8E9BAE',
+    color: '#65758D',
   },
 });

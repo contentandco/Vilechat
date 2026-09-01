@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.primary,
     paddingVertical: 18,
     borderRadius: 32,
     alignItems: 'center',
@@ -220,9 +220,9 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   actionBtnText: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: 'normal',
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
 });

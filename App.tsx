@@ -581,7 +581,7 @@ function MainApp() {
               <OnboardingUsernameScreen
                 onBack={() => setCurrentScreen('onboarding-vibe')}
                 onContinue={handleUsernameSelected}
-                initialUsername={userNickname}
+                initialUsername=""
               />
             )}
 
