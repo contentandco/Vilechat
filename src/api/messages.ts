@@ -121,53 +121,6 @@ export async function sendEncryptedMessage({
 
   if (error) throw error;
 
-  // 1. Broadcast immediate global notification for inbox badges
-  try {
-    const globalChannel = supabase.channel('global_inbox_messages');
-    if ((globalChannel as any).httpSend) {
-      (globalChannel as any).httpSend({
-        type: 'broadcast',
-        event: 'new_message',
-        payload: { roomId, roomCode },
-      });
-    } else {
-      globalChannel.send({
-        type: 'broadcast',
-        event: 'new_message',
-        payload: { roomId, roomCode },
-      });
-    }
-  } catch (e) {}
-
-  // 2. Broadcast immediate room event for open chat screens
-  try {
-    const roomChannel = supabase.channel(`room_${roomId}`);
-    const payload = {
-      id,
-      room_id: roomId,
-      sender_id: isSystem ? '__system__' : senderId,
-      sender_name: isSystem ? 'System' : senderName,
-      content_encrypted: encryptedContent,
-      is_image: isImage,
-      is_voice: isVoice,
-      is_sticker: isSticker,
-      created_at: createdAt,
-    };
-    if ((roomChannel as any).httpSend) {
-      (roomChannel as any).httpSend({
-        type: 'broadcast',
-        event: 'room_new_message',
-        payload,
-      });
-    } else {
-      roomChannel.send({
-        type: 'broadcast',
-        event: 'room_new_message',
-        payload,
-      });
-    }
-  } catch (e) {}
-
   return id;
 }
 
