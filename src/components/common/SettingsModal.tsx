@@ -7,7 +7,6 @@ import {
   Modal,
   ScrollView,
   Switch,
-  Alert,
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -29,23 +28,16 @@ import {
   Delete02Icon,
 } from '@hugeicons/core-free-icons';
 import { Colors } from '../../constants/theme';
-import { ActiveRoomDetail } from '../../types';
 import { getPausedRoomCodes, savePausedRoomCodes, getLocalRecentRooms } from '../../services/storage';
 import { setRoomPausedInDB } from '../../api/rooms';
 import { useAppStore } from '../../store/useAppStore';
+import { useInboxRooms } from '../../hooks/queries/useInboxQuery';
+import { useRoomActions } from '../../hooks/useRoomActions';
 import {
   requestNotificationPermission,
   scheduleShareReminderNotification,
   triggerTeamVileNotification,
 } from '../../services/notifications';
-
-interface SettingsModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onDeleteAccount: () => void;
-  activeRooms?: ActiveRoomDetail[];
-  currentWhisperCode?: string;
-}
 
 export const NOTIF_STORAGE_KEYS = {
   REMINDERS: 'vailchat_notif_reminders',
@@ -53,64 +45,70 @@ export const NOTIF_STORAGE_KEYS = {
   TEAM_VAILCHAT: 'vailchat_notif_team_vailchat',
 };
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({
-  visible,
-  onClose,
-  onDeleteAccount,
-  activeRooms = [],
-  currentWhisperCode = '',
-}) => {
+export const SettingsModal: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const visible = useAppStore((s) => s.showSettingsModal);
+  const setShowSettingsModal = useAppStore((s) => s.setShowSettingsModal);
+  const whisperRoomCode = useAppStore((s) => s.whisperRoomCode);
+  const deviceId = useAppStore((s) => s.deviceId);
+
+  const { data: activeRooms = [] } = useInboxRooms(deviceId);
+  const { handleDeleteAccount } = useRoomActions();
+
+  const onClose = () => setShowSettingsModal(false);
+
+  // Sub-modal states
   const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
+  const [showPauseLinkModal, setShowPauseLinkModal] = useState<boolean>(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+
+  // Notification toggles
   const [remindersEnabled, setRemindersEnabled] = useState<boolean>(true);
   const [newMessagesEnabled, setNewMessagesEnabled] = useState<boolean>(true);
   const [teamVailchatEnabled, setTeamVailchatEnabled] = useState<boolean>(true);
 
-  const storeWhisperCode = useAppStore((s) => s.whisperRoomCode);
-  const effectiveWhisperCode = currentWhisperCode || storeWhisperCode;
-
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
-  const [showPauseLinkModal, setShowPauseLinkModal] = useState<boolean>(false);
+  // Paused rooms state
   const [pausedCodes, setPausedCodes] = useState<string[]>([]);
-  const [localRooms, setLocalRooms] = useState<{ code: string; name?: string }[]>([]);
+  const [allRecentRooms, setAllRecentRooms] = useState<{ code: string; name?: string }[]>([]);
 
-  // Load paused codes, local rooms, and notification settings on mount
+  // Simple static modal views for "More" section
+  const [simpleModalTitle, setSimpleModalTitle] = useState<string>('');
+  const [simpleModalContent, setSimpleModalContent] = useState<string>('');
+  const [showSimpleModal, setShowSimpleModal] = useState<boolean>(false);
+
+  // Load initial notification preferences & paused rooms
   useEffect(() => {
-    if (visible || showPauseLinkModal) {
-      getPausedRoomCodes().then((codes) => setPausedCodes(codes));
-      getLocalRecentRooms().then((rooms) => {
-        setLocalRooms(rooms.map((r) => ({ code: r.code, name: r.name })));
+    if (visible) {
+      AsyncStorage.getItem(NOTIF_STORAGE_KEYS.REMINDERS).then((val) => {
+        if (val !== null) setRemindersEnabled(val === 'true');
+      });
+      AsyncStorage.getItem(NOTIF_STORAGE_KEYS.NEW_MESSAGES).then((val) => {
+        if (val !== null) setNewMessagesEnabled(val === 'true');
+      });
+      AsyncStorage.getItem(NOTIF_STORAGE_KEYS.TEAM_VAILCHAT).then((val) => {
+        if (val !== null) setTeamVailchatEnabled(val === 'true');
       });
 
-      AsyncStorage.multiGet([
-        NOTIF_STORAGE_KEYS.REMINDERS,
-        NOTIF_STORAGE_KEYS.NEW_MESSAGES,
-        NOTIF_STORAGE_KEYS.TEAM_VAILCHAT,
-      ]).then((results) => {
-        results.forEach(([key, val]) => {
-          if (val !== null) {
-            const isEnabled = val === 'true';
-            if (key === NOTIF_STORAGE_KEYS.REMINDERS) setRemindersEnabled(isEnabled);
-            if (key === NOTIF_STORAGE_KEYS.NEW_MESSAGES) setNewMessagesEnabled(isEnabled);
-            if (key === NOTIF_STORAGE_KEYS.TEAM_VAILCHAT) setTeamVailchatEnabled(isEnabled);
-          }
-        });
-      }).catch(() => {});
+      getPausedRoomCodes().then((codes) => setPausedCodes(codes));
+      getLocalRecentRooms().then((rooms) => setAllRecentRooms(rooms));
     }
-  }, [visible, showPauseLinkModal]);
+  }, [visible]);
 
+  // Handlers for notification toggles
   const handleToggleReminders = async (value: boolean) => {
     setRemindersEnabled(value);
-    await AsyncStorage.setItem(NOTIF_STORAGE_KEYS.REMINDERS, String(value)).catch(() => {});
+    await AsyncStorage.setItem(NOTIF_STORAGE_KEYS.REMINDERS, value.toString());
     if (value) {
-      await requestNotificationPermission();
-      await scheduleShareReminderNotification();
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        scheduleShareReminderNotification();
+      }
     }
   };
 
   const handleToggleNewMessages = async (value: boolean) => {
     setNewMessagesEnabled(value);
-    await AsyncStorage.setItem(NOTIF_STORAGE_KEYS.NEW_MESSAGES, String(value)).catch(() => {});
+    await AsyncStorage.setItem(NOTIF_STORAGE_KEYS.NEW_MESSAGES, value.toString());
     if (value) {
       await requestNotificationPermission();
     }
@@ -118,91 +116,135 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleToggleTeamVailchat = async (value: boolean) => {
     setTeamVailchatEnabled(value);
-    await AsyncStorage.setItem(NOTIF_STORAGE_KEYS.TEAM_VAILCHAT, String(value)).catch(() => {});
+    await AsyncStorage.setItem(NOTIF_STORAGE_KEYS.TEAM_VAILCHAT, value.toString());
     if (value) {
-      await requestNotificationPermission();
-      await triggerTeamVileNotification();
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        triggerTeamVileNotification();
+      }
     }
   };
 
-  const togglePauseRoom = async (code: string) => {
-    let next: string[];
-    const isCurrentlyPaused = pausedCodes.includes(code);
-    const nextIsPaused = !isCurrentlyPaused;
+  // Toggle pause for a specific room link
+  const togglePauseRoom = async (roomCode: string) => {
+    const isCurrentlyPaused = pausedCodes.includes(roomCode);
+    let updated: string[];
 
     if (isCurrentlyPaused) {
-      next = pausedCodes.filter((c) => c !== code);
+      updated = pausedCodes.filter((c) => c !== roomCode);
     } else {
-      next = [...pausedCodes, code];
+      updated = [...pausedCodes, roomCode];
     }
-    setPausedCodes(next);
-    await savePausedRoomCodes(next);
-    await setRoomPausedInDB(code, nextIsPaused);
+
+    setPausedCodes(updated);
+    await savePausedRoomCodes(updated);
+    await setRoomPausedInDB(roomCode, !isCurrentlyPaused);
+  };
+
+  // Helper to open simple modal
+  const openSimpleInfo = (title: string, content: string) => {
+    setSimpleModalTitle(title);
+    setSimpleModalContent(content);
+    setShowSimpleModal(true);
   };
 
   const showHelp = () => {
-    Alert.alert(
-      'Need Help?',
-      'Vailchat is a 100% anonymous & ephemeral messaging studio. Have questions or feedback? Reach us anytime at support@vailchat.com.'
+    openSimpleInfo(
+      'I Need Help',
+      `Need assistance or experiencing an issue?
+
+• How Vile Chat Works:
+Your messages and rooms are 100% ephemeral and anonymous. Every room self-destructs 24 hours after creation.
+
+• Joining Rooms:
+Enter a 6-character room code or open any share link sent by a friend.
+
+• Deleting Data:
+You can permanently delete any room you created, or delete your entire account and local data anytime from Settings.`
     );
   };
 
   const showSafety = () => {
-    Alert.alert(
+    openSimpleInfo(
       'Safety Resources',
-      'We take user safety seriously. Cyberbullying and harassment are not tolerated. All room communications self-destruct within 24 hours.'
+      `Your safety and privacy are our top priorities.
+
+• End-to-End Encryption:
+All messages are encrypted directly on your device before transmission. No unencrypted content ever touches our servers.
+
+• Zero Data Retention:
+All messages, rooms, and media permanently expire and are purged after 24 hours.
+
+• Reporting & Blocking:
+If someone is abusive, you can immediately leave and remove the room from your inbox or delete the room permanently.`
     );
   };
 
   const showTerms = () => {
-    Alert.alert(
+    openSimpleInfo(
       'Terms of Use',
-      'By using Vailchat, you agree to treat everyone with respect and follow local laws. Ephemeral rooms are destroyed upon expiration.'
+      `Welcome to Vile Chat. By using this application, you agree to:
+
+1. Use the service respectfully and lawfully.
+2. Not use the service to harass, bully, or threaten others.
+3. Understand that messages and rooms expire permanently after 24 hours.
+4. Accept that this service is provided as-is for private, anonymous communication.`
     );
   };
 
   const showPrivacy = () => {
-    Alert.alert(
+    openSimpleInfo(
       'Privacy Policy',
-      'All chats are on-device AES-256 CTR encrypted. We do not store personal profiles, phone numbers, or metadata.'
+      `Our Privacy Promise:
+
+• No Phone Numbers or Emails Required.
+• No Tracking or Ad Profiles.
+• Messages are encrypted on-device.
+• All rooms self-destruct after 24 hours.
+• Deleting your account wipes all device sessions and local cryptographic keys immediately.`
     );
   };
 
   const showLicenses = () => {
-    Alert.alert(
+    openSimpleInfo(
       'Open Source Licenses',
-      'Vailchat is built using React Native, Expo, Supabase, and open-source cryptography libraries.'
+      `Vile Chat is built with love using amazing open source software:
+
+• React Native & Expo
+• TanStack Query (React Query)
+• Zustand
+• Supabase Client
+• Lucide Icons & Hugeicons
+• AES-JS Cryptography Library
+
+Thank you to the global open-source developer community!`
     );
   };
 
-  const handleExecuteDelete = () => {
-    setShowDeleteConfirm(false);
-    onDeleteAccount();
-  };
+  const effectiveWhisperCode = whisperRoomCode || '';
 
-  // Construct comprehensive list of all manageable links
-  const roomMap = new Map<string, string>();
+  // Consolidate active room list
+  const combinedRoomMap = new Map<string, string>();
   if (effectiveWhisperCode) {
-    roomMap.set(effectiveWhisperCode, 'Active Whisper Link');
-  }
-  for (const r of activeRooms) {
-    if (r?.code) {
-      roomMap.set(r.code, r.name || `Room: ${r.code}`);
-    }
-  }
-  for (const r of localRooms) {
-    if (r?.code && !roomMap.has(r.code)) {
-      roomMap.set(r.code, r.name || `Room: ${r.code}`);
-    }
+    combinedRoomMap.set(effectiveWhisperCode, 'Active Whisper Link');
   }
 
-  const manageableList = Array.from(roomMap.entries()).map(([code, name]) => ({
+  activeRooms.forEach((r) => {
+    combinedRoomMap.set(r.code, r.name || r.code);
+  });
+
+  allRecentRooms.forEach((r) => {
+    if (!combinedRoomMap.has(r.code)) {
+      combinedRoomMap.set(r.code, r.name || r.code);
+    }
+  });
+
+  const manageableList = Array.from(combinedRoomMap.entries()).map(([code, name]) => ({
     code,
     displayName: code === effectiveWhisperCode && (!name || name === code) ? 'Active Whisper Link' : name,
   }));
 
   const topPadding = Math.max(insets.top + 8, Platform.OS === 'ios' ? 54 : 48);
-
   const isCurrentWhisperPaused = pausedCodes.includes(effectiveWhisperCode);
 
   return (
@@ -349,27 +391,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </View>
               <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={Colors.textMuted} />
             </TouchableOpacity>
+          </View>
 
-            <View style={styles.separator} />
+          {/* Section 4: Account Actions (Delete Account) */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Account</Text>
+          </View>
 
-            {/* Delete account */}
+          <View style={styles.cardGroup}>
             <TouchableOpacity 
               style={styles.rowItem} 
-              onPress={() => setShowDeleteConfirm(true)} 
+              onPress={() => setShowDeleteConfirm(true)}
               activeOpacity={0.75}
             >
               <View style={styles.rowLeft}>
                 <View style={[styles.iconCircle, styles.deleteIconCircle]}>
-                  <HugeiconsIcon icon={Delete02Icon} size={18} color={Colors.danger} />
+                  <HugeiconsIcon icon={Delete02Icon} size={18} color="#FF3B69" />
                 </View>
-                <Text style={[styles.rowLabel, { color: Colors.danger }]}>Delete account</Text>
+                <Text style={[styles.rowLabel, styles.deleteLabel]}>Delete account</Text>
               </View>
               <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
+
+          <View style={styles.bottomVersionContainer}>
+            <Text style={styles.bottomVersionText}>Vile Chat v1.0.0 (Encrypted)</Text>
+          </View>
         </ScrollView>
 
-        {/* Modal: Notifications Detail View */}
+        {/* Modal: Simple Info */}
+        <Modal
+          visible={showSimpleModal}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setShowSimpleModal(false)}
+        >
+          <View style={styles.simpleModalContainer}>
+            <View style={[styles.simpleModalHeader, { paddingTop: topPadding }]}>
+              <TouchableOpacity 
+                style={styles.backBtn} 
+                onPress={() => setShowSimpleModal(false)} 
+                activeOpacity={0.7}
+              >
+                <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={Colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.simpleModalTitle}>{simpleModalTitle}</Text>
+              <View style={styles.headerRightPlaceholder} />
+            </View>
+
+            <ScrollView style={styles.simpleModalScroll} contentContainerStyle={styles.simpleModalScrollContent}>
+              <Text style={styles.simpleModalBodyText}>{simpleModalContent}</Text>
+            </ScrollView>
+          </View>
+        </Modal>
+
+        {/* Modal: Notifications Manager */}
         <Modal
           visible={showNotificationsModal}
           animationType="slide"
@@ -477,7 +553,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Text style={styles.pauseTitle}>Pause My Links</Text>
                 <TouchableOpacity 
                   style={styles.pauseDoneBtn} 
-                  onPress={() => setShowPauseLinkModal(false)}
+                  onPress={() => setShowPauseLinkModal(false)} 
                   activeOpacity={0.7}
                 >
                   <Text style={styles.pauseDoneText}>Done</Text>
@@ -537,7 +613,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.confirmDeleteBtn}
-                  onPress={handleExecuteDelete}
+                  onPress={async () => {
+                    setShowDeleteConfirm(false);
+                    await handleDeleteAccount();
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.confirmDeleteText}>Delete Account</Text>
@@ -580,12 +659,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 20,
     paddingBottom: 40,
   },
   sectionHeader: {
+    marginTop: 20,
     marginBottom: 8,
-    marginTop: 16,
     paddingHorizontal: 4,
   },
   sectionTitle: {
@@ -593,7 +671,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   cardGroup: {
     backgroundColor: Colors.cardBackground,
@@ -610,131 +688,149 @@ const styles = StyleSheet.create({
   rowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    marginRight: 12,
   },
   iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: Colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   deleteIconCircle: {
-    backgroundColor: 'rgba(255, 59, 105, 0.15)',
+    backgroundColor: 'rgba(255, 59, 105, 0.12)',
   },
   rowLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.textPrimary,
   },
+  deleteLabel: {
+    color: '#FF3B69',
+  },
   pausedCountSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.primary,
     fontWeight: '600',
     marginTop: 2,
   },
   separator: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    marginLeft: 66,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    marginLeft: 62,
   },
+  bottomVersionContainer: {
+    marginTop: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomVersionText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontWeight: '500',
+  },
+  // Pause modal styles
   pauseOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'flex-end',
   },
   pauseContainer: {
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.cardBackground,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-    height: '75%',
-    maxHeight: '85%',
+    paddingTop: 20,
+    paddingBottom: 40,
+    maxHeight: '80%',
   },
   pauseHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    alignItems: 'center',
+    marginBottom: 8,
   },
   pauseTitle: {
-    color: Colors.textPrimary,
     fontSize: 18,
     fontWeight: '800',
+    color: Colors.textPrimary,
   },
   pauseDoneBtn: {
-    backgroundColor: Colors.cardBackground,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.surfaceMuted,
+    borderRadius: 14,
   },
   pauseDoneText: {
-    color: Colors.textPrimary,
-    fontSize: 14,
+    color: Colors.primary,
     fontWeight: '700',
+    fontSize: 14,
   },
   pauseDesc: {
-    color: Colors.textSecondary,
     fontSize: 13,
+    color: Colors.textSecondary,
     lineHeight: 18,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   pauseList: {
-    flex: 1,
+    flexGrow: 0,
   },
   pauseListContent: {
-    paddingBottom: 30,
+    gap: 10,
+    paddingBottom: 20,
   },
   pauseCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 18,
+    backgroundColor: Colors.surfaceMuted,
     padding: 14,
-    marginBottom: 12,
+    borderRadius: 16,
   },
   pauseCardInfo: {
     flex: 1,
     marginRight: 12,
   },
   pauseCardTitle: {
-    color: Colors.textPrimary,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    marginBottom: 3,
+    color: Colors.textPrimary,
+    marginBottom: 2,
   },
   pauseCardCode: {
-    color: Colors.textMuted,
     fontSize: 11,
-    marginBottom: 6,
+    color: Colors.textMuted,
   },
-  pauseStatusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+  // Simple modal styles
+  simpleModalContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
   },
-  badgeActive: {
-    backgroundColor: 'rgba(50, 205, 50, 0.15)',
+  simpleModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
-  badgePaused: {
-    backgroundColor: 'rgba(255, 59, 105, 0.15)',
-  },
-  pauseStatusText: {
-    fontSize: 10,
+  simpleModalTitle: {
+    fontSize: 18,
     fontWeight: '800',
+    color: Colors.textPrimary,
   },
-  textActive: {
-    color: '#32CD32',
+  simpleModalScroll: {
+    flex: 1,
   },
-  textPaused: {
-    color: Colors.primary,
+  simpleModalScrollContent: {
+    padding: 24,
+  },
+  simpleModalBodyText: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    lineHeight: 24,
   },
   confirmModalOverlay: {
     position: 'absolute',
@@ -742,10 +838,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
+    zIndex: 9999,
   },
   confirmCard: {
     width: '100%',

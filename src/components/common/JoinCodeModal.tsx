@@ -11,24 +11,18 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Colors } from '../../constants/theme';
+import { useAppStore } from '../../store/useAppStore';
+import { useRoomActions } from '../../hooks/useRoomActions';
 
-interface JoinCodeModalProps {
-  visible: boolean;
-  onClose: () => void;
-  roomCodeInput: string;
-  setRoomCodeInput: (text: string) => void;
-  onJoin: (code?: string) => void;
-  loading: boolean;
-}
+export const JoinCodeModal: React.FC = () => {
+  const visible = useAppStore((s) => s.showJoinCodeModal);
+  const setShowJoinCodeModal = useAppStore((s) => s.setShowJoinCodeModal);
+  const roomCodeInput = useAppStore((s) => s.roomCodeInput);
+  const setRoomCodeInput = useAppStore((s) => s.setRoomCodeInput);
 
-export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({
-  visible,
-  onClose,
-  roomCodeInput,
-  setRoomCodeInput,
-  onJoin,
-  loading,
-}) => {
+  const { handleJoinRoom, loading } = useRoomActions();
+
+  const handleClose = () => setShowJoinCodeModal(false);
   const isSubmitDisabled = !roomCodeInput.trim() || loading;
 
   return (
@@ -36,7 +30,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({
       visible={visible}
       transparent={true}
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
@@ -45,7 +39,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({
         <View style={styles.joinModalCard}>
           <View style={styles.joinModalHeader}>
             <Text style={styles.joinModalTitle}>Join by Code</Text>
-            <TouchableOpacity onPress={onClose} style={styles.joinModalCloseBtn}>
+            <TouchableOpacity onPress={handleClose} style={styles.joinModalCloseBtn}>
               <Text style={styles.modalCloseSimpleText}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -60,23 +54,20 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({
             placeholderTextColor={Colors.textMuted}
             value={roomCodeInput}
             onChangeText={setRoomCodeInput}
-            selectionColor="#FFFFFF"
-            cursorColor="#FFFFFF"
-            autoCapitalize="none"
+            autoCapitalize="characters"
             autoCorrect={false}
-            autoFocus={true}
           />
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.joinModalSubmitBtn, isSubmitDisabled && styles.joinModalSubmitDisabled]}
-            onPress={() => onJoin(roomCodeInput)}
             disabled={isSubmitDisabled}
-            activeOpacity={0.85}
+            onPress={() => handleJoinRoom(roomCodeInput)}
+            activeOpacity={0.8}
           >
             {loading ? (
               <ActivityIndicator size="small" color={Colors.textWhite} />
             ) : (
-              <Text style={styles.joinModalSubmitText}>Join Chat</Text>
+              <Text style={styles.joinModalSubmitText}>Enter Room →</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -88,18 +79,22 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({
 const styles = StyleSheet.create({
   joinModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    padding: 24,
   },
   joinModalCard: {
     width: '100%',
     backgroundColor: Colors.cardBackground,
     borderRadius: 24,
-    padding: 22,
-    shadowOpacity: 0,
-    elevation: 0,
+    padding: 24,
+    borderWidth: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10,
   },
   joinModalHeader: {
     flexDirection: 'row',
@@ -108,53 +103,53 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   joinModalTitle: {
-    color: Colors.textPrimary,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     fontSize: 20,
     fontWeight: '800',
+    color: Colors.textPrimary,
   },
   joinModalCloseBtn: {
-    width: 32,
-    height: 32,
-    backgroundColor: Colors.surfaceInput,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 4,
   },
   modalCloseSimpleText: {
-    color: Colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '700',
+    color: Colors.textMuted,
+    fontSize: 18,
+    fontWeight: '600',
   },
   joinModalSubtitle: {
-    color: Colors.textSecondary,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 20,
     lineHeight: 18,
-    marginBottom: 18,
   },
   joinModalInput: {
-    backgroundColor: Colors.surfaceInput,
+    backgroundColor: Colors.surfaceMuted,
     borderRadius: 16,
-    borderWidth: 0,
     paddingHorizontal: 16,
     paddingVertical: 14,
+    fontSize: 16,
+    fontWeight: '600',
     color: Colors.textPrimary,
-    fontSize: 15,
-    marginBottom: 16,
+    borderWidth: 0,
+    marginBottom: 20,
+    textAlign: 'center',
+    letterSpacing: 1,
   },
   joinModalSubmitBtn: {
     backgroundColor: Colors.primary,
+    borderRadius: 16,
     paddingVertical: 15,
-    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   joinModalSubmitDisabled: {
-    opacity: 0.4,
+    opacity: 0.5,
   },
   joinModalSubmitText: {
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+    fontSize: 15,
+    fontWeight: '700',
     color: Colors.textWhite,
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.3,
   },
 });

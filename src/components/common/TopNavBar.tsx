@@ -1,23 +1,19 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Settings } from 'lucide-react-native';
-import { HomeTab } from '../../types';
+import { useAppStore } from '../../store/useAppStore';
+import { useInboxRooms } from '../../hooks/queries/useInboxQuery';
 import { Colors } from '../../constants/theme';
 
-interface TopNavBarProps {
-  activeTab: HomeTab;
-  setActiveTab: (tab: HomeTab) => void;
-  hasUnread: boolean;
-  userNickname: string;
-  onOpenSettings: () => void;
-}
+export const TopNavBar: React.FC = () => {
+  const activeTab = useAppStore((s) => s.activeTab);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
+  const setShowSettingsModal = useAppStore((s) => s.setShowSettingsModal);
+  const deviceId = useAppStore((s) => s.deviceId);
 
-export const TopNavBar: React.FC<TopNavBarProps> = ({
-  activeTab,
-  setActiveTab,
-  hasUnread,
-  onOpenSettings,
-}) => {
+  const { data: verifiedActiveRooms = [] } = useInboxRooms(deviceId);
+  const hasUnread = verifiedActiveRooms.some((r) => r.hasUnread);
+
   return (
     <View style={styles.topNavBar}>
       <View style={styles.topNavTabs}>
@@ -45,7 +41,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
 
       <TouchableOpacity 
         style={styles.settingsBtn}
-        onPress={onOpenSettings}
+        onPress={() => setShowSettingsModal(true)}
         activeOpacity={0.7}
       >
         <Settings size={20} color={Colors.textPrimary} strokeWidth={2.2} />
@@ -59,9 +55,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
     paddingHorizontal: 20,
-    paddingTop: 6,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   topNavTabs: {
     flexDirection: 'row',
@@ -69,35 +66,31 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   topNavTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    position: 'relative',
     paddingVertical: 4,
   },
   topNavTabText: {
-    fontSize: 26,
-    fontWeight: '900',
+    fontSize: 18,
+    fontWeight: '700',
     color: Colors.textMuted,
-    letterSpacing: -0.5,
   },
   topNavTabTextActive: {
     color: Colors.textPrimary,
   },
   inboxRedDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    position: 'absolute',
+    top: 2,
+    right: -8,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: Colors.primary,
-    marginLeft: 6,
-    alignSelf: 'flex-start',
-    marginTop: 4,
   },
   settingsBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: Colors.cardBackground,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -3,24 +3,21 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Delete02Icon } from '@hugeicons/core-free-icons';
 import { Colors } from '../../constants/theme';
+import { useAppStore } from '../../store/useAppStore';
+import { useRoomActions } from '../../hooks/useRoomActions';
 
 interface InboxHeaderProps {
-  isInboxEditMode: boolean;
-  setIsInboxEditMode: (edit: boolean) => void;
-  selectedRoomCodes: string[];
-  setSelectedRoomCodes: (codes: string[]) => void;
   hasRooms: boolean;
-  onDeleteSelected: () => void;
 }
 
-export const InboxHeader: React.FC<InboxHeaderProps> = ({
-  isInboxEditMode,
-  setIsInboxEditMode,
-  selectedRoomCodes,
-  setSelectedRoomCodes,
-  hasRooms,
-  onDeleteSelected,
-}) => {
+export const InboxHeader: React.FC<InboxHeaderProps> = ({ hasRooms }) => {
+  const isInboxEditMode = useAppStore((s) => s.isInboxEditMode);
+  const setIsInboxEditMode = useAppStore((s) => s.setIsInboxEditMode);
+  const selectedRoomCodes = useAppStore((s) => s.selectedRoomCodes);
+  const setSelectedRoomCodes = useAppStore((s) => s.setSelectedRoomCodes);
+
+  const { handleDeleteSelectedRooms } = useRoomActions();
+
   return (
     <View style={styles.historyHeaderRow}>
       <Text style={styles.historySectionTitle}>
@@ -42,7 +39,7 @@ export const InboxHeader: React.FC<InboxHeaderProps> = ({
 
             <TouchableOpacity 
               style={[styles.deleteSelectedBtn, selectedRoomCodes.length === 0 && styles.deleteSelectedDisabled]} 
-              onPress={onDeleteSelected}
+              onPress={handleDeleteSelectedRooms}
               disabled={selectedRoomCodes.length === 0}
             >
               <HugeiconsIcon icon={Delete02Icon} size={14} color={Colors.textWhite} />
@@ -72,20 +69,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   historySectionTitle: {
-    color: Colors.textSecondary,
-    fontSize: 11,
-    fontWeight: 'bold',
-    letterSpacing: 1.5,
-  },
-  clearHistoryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  clearHistoryText: {
-    color: Colors.textWhite,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '800',
+    color: Colors.textMuted,
+    letterSpacing: 1.2,
   },
   editModeActionsRow: {
     flexDirection: 'row',
@@ -93,31 +80,45 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cancelEditBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    backgroundColor: Colors.surfaceInput,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
+    backgroundColor: Colors.surfaceMuted,
   },
   cancelEditText: {
-    color: Colors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
+    color: Colors.textSecondary,
   },
   deleteSelectedBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.primary,
-    paddingVertical: 5,
+    gap: 5,
     paddingHorizontal: 12,
-    borderRadius: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
   },
   deleteSelectedDisabled: {
-    opacity: 0.35,
+    opacity: 0.4,
   },
   deleteSelectedText: {
-    color: Colors.textWhite,
     fontSize: 12,
     fontWeight: '700',
+    color: Colors.textWhite,
+  },
+  clearHistoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  clearHistoryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textWhite,
   },
 });

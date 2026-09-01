@@ -33,41 +33,42 @@ import {
   broadcastKickUser,
   deleteRoomPermanently,
 } from '../api/rooms';
+import { useAppStore } from '../store/useAppStore';
+import { useRoomActions } from '../hooks/useRoomActions';
+import { useRoomTimer } from '../hooks/useRoomTimer';
 
-interface ChatRoomScreenProps {
-  roomId: string;
-  roomCode: string;
-  roomName: string;
-  setRoomName: (name: string) => void;
-  userId: string;
-  deviceId: string;
-  userNickname: string;
-  timeRemaining: string;
-  isCreator: boolean;
-  onBack: () => void;
-  onLeaveRoom: () => void;
-  onDestroyRoom?: () => void;
-  showRoomInfo: boolean;
-  setShowRoomInfo: (show: boolean) => void;
-}
-
-export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
-  roomId,
-  roomCode,
-  roomName,
-  setRoomName,
-  userId,
-  deviceId,
-  userNickname,
-  timeRemaining,
-  isCreator,
-  onBack,
-  onLeaveRoom,
-  onDestroyRoom,
-  showRoomInfo,
-  setShowRoomInfo,
-}) => {
+export const ChatRoomScreen: React.FC = () => {
   const queryClient = useQueryClient();
+
+  // Zustand Store
+  const roomId = useAppStore((s) => s.activeRoomId);
+  const roomCode = useAppStore((s) => s.activeRoomCode);
+  const roomName = useAppStore((s) => s.activeRoomName);
+  const setRoomName = useAppStore((s) => s.setActiveRoomName);
+  const userId = useAppStore((s) => s.userId);
+  const deviceId = useAppStore((s) => s.deviceId);
+  const userNickname = useAppStore((s) => s.userNickname);
+  const roomExpiresAt = useAppStore((s) => s.roomExpiresAt);
+  const roomCreatorDeviceId = useAppStore((s) => s.roomCreatorDeviceId);
+  const roomCreatorId = useAppStore((s) => s.roomCreatorId);
+  const whisperRoomCode = useAppStore((s) => s.whisperRoomCode);
+  const showRoomInfo = useAppStore((s) => s.showRoomInfo);
+  const setShowRoomInfo = useAppStore((s) => s.setShowRoomInfo);
+
+  const {
+    handleLeaveRoom,
+    handleLeaveAndRemoveRoom,
+    handleDestroyAndRemoveRoom,
+  } = useRoomActions();
+
+  const timeRemaining = useRoomTimer(roomExpiresAt, handleLeaveRoom);
+
+  const isCreator = Boolean(
+    (roomCreatorDeviceId && roomCreatorDeviceId === deviceId) ||
+    (roomCreatorId && roomCreatorId === userId) ||
+    roomCode === whisperRoomCode
+  );
+
   const [inputText, setInputText] = useState<string>('');
   const [roomNameInputText, setRoomNameInputText] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -86,28 +87,17 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   const { mutateAsync: loadEarlierMutation, isPending: loadingEarlier } = useLoadEarlierMessagesMutation();
   const { mutateAsync: renameRoomMutation } = useRenameRoomMutation(deviceId);
 
-  const [isPullRefreshing, setIsPullRefreshing] = useState<boolean>(false);
-
-  const handleRefresh = async () => {
-    try {
-      setIsPullRefreshing(true);
-      await refetchMessages();
-    } finally {
-      setIsPullRefreshing(false);
-    }
-  };
-
   const [onlineUsers, setOnlineUsers] = useState<RoomPresenceUser[]>([]);
   const participantsCount = Math.max(1, onlineUsers.length);
 
-  // Scroll to bottom (latest message) helper
+  // Scroll to bottom helper
   const scrollToBottom = (delay: number = 50) => {
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, delay);
   };
 
-  // Helper to mark current room as read both locally and in query cache
+  // Helper to mark current room as read
   const markActiveRoomRead = () => {
     if (roomCode) {
       setRoomLastRead(roomCode, Date.now());
@@ -125,7 +115,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     }
   };
 
-  // Update hasEarlierMessages dynamically
   useEffect(() => {
     markActiveRoomRead();
     setHasEarlierMessages(messages.length >= 50);
@@ -136,7 +125,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     if (!roomId) return;
     markActiveRoomRead();
 
-    // Send system announcement once per room session
     const checkAnnouncement = async () => {
       const announceKey = `vailchat_announcement_sent_${roomId}_${userId}`;
       const alreadyAnnounced = await AsyncStorage.getItem(announceKey);
@@ -147,7 +135,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     };
     checkAnnouncement();
 
-    // AppState Foreground Reconnect: Catch up on any delta messages missed while offline/backgrounded
     const appStateSub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         refetchMessages();
@@ -155,7 +142,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
       }
     });
 
-    // Subscribe to incoming messages and live Presence
     const unsubscribeMessages = subscribeToRoomMessages(
       roomId,
       roomCode,
@@ -182,12 +168,10 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
       }
     );
 
-    // Subscribe to room meta updates
     const unsubscribeMeta = subscribeToRoomMeta(roomId, roomCode, (newName) => {
       setRoomName(newName);
     });
 
-    // Subscribe to room actions (kick, delete)
     const unsubscribeActions = subscribeToRoomActions(
       roomId,
       (kickedUserId) => {
@@ -195,7 +179,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
           Alert.alert(
             'Removed',
             'You were removed from this room by the creator.',
-            [{ text: 'OK', onPress: onLeaveRoom }]
+            [{ text: 'OK', onPress: handleLeaveAndRemoveRoom }]
           );
         }
       },
@@ -204,7 +188,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
           Alert.alert(
             'Room Closed',
             'This room was closed and deleted by the creator.',
-            [{ text: 'OK', onPress: onLeaveRoom }]
+            [{ text: 'OK', onPress: handleLeaveAndRemoveRoom }]
           );
         }
       }
@@ -220,131 +204,135 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     };
   }, [roomId, roomCode]);
 
-  // Load earlier messages with TanStack Query mutation
   const handleLoadEarlier = async () => {
     if (loadingEarlier || messages.length === 0) return;
     try {
-      const oldestCreatedAt = messages[0].created_at;
-      const res = await loadEarlierMutation({
+      const earliestMessage = messages[0];
+      const result = await loadEarlierMutation({
         roomId,
         roomCode,
-        beforeCreatedAt: oldestCreatedAt,
+        beforeCreatedAt: earliestMessage.created_at,
       });
-      if (res.earlier.length < 50) {
+      if (result.earlier.length < 50) {
         setHasEarlierMessages(false);
       }
-    } catch (e) {
-      console.warn('Failed to load earlier messages:', e);
-    }
-  };
-
-  // Send text message with optimistic update
-  const handleSendMessage = async () => {
-    const text = inputText.trim();
-    if (!text) return;
-
-    const msgId = generateClientUUID();
-    setInputText('');
-    scrollToBottom();
-
-    try {
-      await sendMessageMutation({
-        id: msgId,
-        roomId,
-        roomCode,
-        senderId: userId,
-        senderName: userNickname,
-        rawContent: text,
-      });
     } catch (err) {
-      Alert.alert('Error', 'Failed to send message.');
+      console.warn('Failed to load earlier messages:', err);
     }
   };
 
-  // Send photo
-  const { selectImage, pickingImage } = useImagePicker(async (base64Image) => {
-    const msgId = generateClientUUID();
-    scrollToBottom();
+  const handleSendMessage = async (textToSend?: string) => {
+    const rawContent = (textToSend !== undefined ? textToSend : inputText).trim();
+    if (!rawContent || !roomId) return;
+
+    setInputText('');
+    const clientMsgId = generateClientUUID();
+
     try {
       await sendMessageMutation({
-        id: msgId,
+        id: clientMsgId,
         roomId,
         roomCode,
         senderId: userId,
-        senderName: userNickname,
+        senderName: userNickname || 'Anonymous',
+        rawContent,
+      });
+      scrollToBottom(50);
+    } catch (err: any) {
+      Alert.alert('Send Error', err.message || 'Failed to send encrypted message.');
+    }
+  };
+
+  const handleSendVoiceMessage = async (base64AudioUrl: string) => {
+    if (!roomId || !base64AudioUrl) return;
+    const clientMsgId = generateClientUUID();
+
+    try {
+      await sendMessageMutation({
+        id: clientMsgId,
+        roomId,
+        roomCode,
+        senderId: userId,
+        senderName: userNickname || 'Anonymous',
+        rawContent: base64AudioUrl,
+        isVoice: true,
+      });
+      scrollToBottom(50);
+    } catch (err: any) {
+      Alert.alert('Voice Note Error', err.message || 'Failed to send voice note.');
+    }
+  };
+
+  const handleSendImageMessage = async (base64Image: string) => {
+    if (!roomId || !base64Image) return;
+    const clientMsgId = generateClientUUID();
+
+    try {
+      await sendMessageMutation({
+        id: clientMsgId,
+        roomId,
+        roomCode,
+        senderId: userId,
+        senderName: userNickname || 'Anonymous',
         rawContent: base64Image,
         isImage: true,
       });
-    } catch (err) {
-      Alert.alert('Error', 'Failed to send image.');
+      scrollToBottom(50);
+    } catch (err: any) {
+      Alert.alert('Photo Error', err.message || 'Failed to send photo.');
     }
-  });
+  };
 
-  // Record and send voice note
-  const { isRecording, isProcessing: recordingProcessing, startRecording, stopRecording, cancelRecording } = useAudioRecorder(
-    async (base64AudioData) => {
-      const msgId = generateClientUUID();
-      scrollToBottom();
-      try {
-        await sendMessageMutation({
-          id: msgId,
-          roomId,
-          roomCode,
-          senderId: userId,
-          senderName: userNickname,
-          rawContent: base64AudioData,
-          isVoice: true,
-        });
-      } catch (err) {
-        Alert.alert('Error', 'Failed to send voice note.');
-      }
-    }
-  );
+  const {
+    isRecording,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+    isProcessing: recordingProcessing,
+  } = useAudioRecorder(handleSendVoiceMessage);
 
-  // Rename room (Creator only)
+  const { selectImage, pickingImage } = useImagePicker(handleSendImageMessage);
+
   const handleRenameRoom = async (newName: string) => {
-    if (!isCreator) return;
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === roomName) return;
+
     try {
       setLoading(true);
-      await renameRoomMutation({ roomId, roomCode, newName });
-      setRoomName(newName);
-    } catch (e) {
-      console.warn('Failed to update room name:', e);
+      await renameRoomMutation({ roomCode, newName: trimmed });
+      setRoomName(trimmed);
+      Alert.alert('Success', 'Room name updated!');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to rename room.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Kick participant (Creator only)
-  const handleKickParticipant = async (participantId: string, participantName: string) => {
-    if (!isCreator) return;
-    try {
-      await broadcastKickUser(roomId, participantId);
-      // Remove locally from messages query cache
-      queryClient.setQueryData<MessageItem[]>(messageKeys.room(roomId), (old = []) =>
-        old.filter((m) => m.sender_id !== participantId)
-      );
-      Alert.alert('User Kicked', `${participantName} was removed from the room.`);
-    } catch (e) {
-      Alert.alert('Error', 'Failed to kick user.');
-    }
+  const handleDestroyRoom = () => {
+    Alert.alert(
+      'Destroy Room?',
+      'Are you sure you want to permanently delete this room and purge all messages?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Destroy',
+          style: 'destructive',
+          onPress: async () => {
+            setShowRoomInfo(false);
+            await handleDestroyAndRemoveRoom();
+          },
+        },
+      ]
+    );
   };
 
-  // Destroy room (Creator only)
-  const handleDestroyRoom = async () => {
-    if (!isCreator) return;
-    if (onDestroyRoom) {
-      onDestroyRoom();
-      return;
-    }
+  const handleKickParticipant = async (targetUserId: string) => {
     try {
-      setLoading(true);
-      await deleteRoomPermanently(roomId, roomCode);
-      onLeaveRoom();
-    } catch (e) {
-      Alert.alert('Error', 'Failed to delete room.');
-    } finally {
-      setLoading(false);
+      await broadcastKickUser(roomId, targetUserId);
+      setOnlineUsers((prev) => prev.filter((u) => u.userId !== targetUserId));
+    } catch (err) {
+      console.warn('Kick error:', err);
     }
   };
 
@@ -353,19 +341,17 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
       style={styles.chatWrapper}
     >
-      {/* Top Header */}
       <ChatHeader
         roomName={roomName}
         timeRemaining={timeRemaining}
         participantsCount={participantsCount}
-        onBack={onBack}
+        onBack={handleLeaveRoom}
         onOpenRoomInfo={() => {
           setRoomNameInputText(roomName);
           setShowRoomInfo(true);
         }}
       />
 
-      {/* Messages Scroll Area */}
       <MessageList
         scrollViewRef={scrollViewRef}
         messages={messages}
@@ -379,7 +365,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         onLoadEarlier={handleLoadEarlier}
       />
 
-      {/* Input Bar */}
       <ChatInputBar
         inputText={inputText}
         setInputText={setInputText}
@@ -392,7 +377,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         loading={loading || pickingImage || recordingProcessing}
       />
 
-      {/* Room Details Modal */}
       <RoomInfoModal
         visible={showRoomInfo}
         onClose={() => setShowRoomInfo(false)}
@@ -408,7 +392,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         roomNameInputText={roomNameInputText}
         setRoomNameInputText={setRoomNameInputText}
         onRenameRoom={handleRenameRoom}
-        onLeaveRoom={onLeaveRoom}
+        onLeaveRoom={handleLeaveAndRemoveRoom}
         onDestroyRoom={handleDestroyRoom}
         onKickParticipant={handleKickParticipant}
         loading={loading}

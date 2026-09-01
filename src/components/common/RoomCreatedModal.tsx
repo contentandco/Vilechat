@@ -10,34 +10,30 @@ import {
   Platform,
 } from 'react-native';
 import { Colors } from '../../constants/theme';
+import { useAppStore } from '../../store/useAppStore';
+import { useRoomActions } from '../../hooks/useRoomActions';
 
-interface RoomCreatedModalProps {
-  visible: boolean;
-  onClose: () => void;
-  customRoomNameInput: string;
-  setCustomRoomNameInput: (text: string) => void;
-  onSaveName: (nameOverride?: string) => Promise<void>;
-  nameSavedFeedback: boolean;
-  onShareLink: () => void;
-  onGoToInbox: () => void;
-}
+export const RoomCreatedModal: React.FC = () => {
+  const visible = useAppStore((s) => s.showCreatedModal);
+  const setShowCreatedModal = useAppStore((s) => s.setShowCreatedModal);
+  const customRoomNameInput = useAppStore((s) => s.customRoomNameInput);
+  const setCustomRoomNameInput = useAppStore((s) => s.setCustomRoomNameInput);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
 
-export const RoomCreatedModal: React.FC<RoomCreatedModalProps> = ({
-  visible,
-  onClose,
-  customRoomNameInput,
-  setCustomRoomNameInput,
-  onSaveName,
-  nameSavedFeedback,
-  onShareLink,
-  onGoToInbox,
-}) => {
+  const {
+    nameSavedFeedback,
+    handleSaveCustomRoomName,
+    handleUniversalShare,
+  } = useRoomActions();
+
+  const handleClose = () => setShowCreatedModal(false);
+
   return (
     <Modal
       visible={visible}
       transparent={true}
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
@@ -59,17 +55,11 @@ export const RoomCreatedModal: React.FC<RoomCreatedModalProps> = ({
 
           <TextInput
             style={styles.joinModalInput}
-            placeholder="Room name (e.g. My Secret Room)..."
+            placeholder="Room name (e.g. Gossip, Gaming...)"
             placeholderTextColor={Colors.textMuted}
             value={customRoomNameInput}
-            onChangeText={(text) => {
-              setCustomRoomNameInput(text);
-              onSaveName(text);
-            }}
-            selectionColor="#FFFFFF"
-            cursorColor="#FFFFFF"
-            onSubmitEditing={() => onSaveName()}
-            onBlur={() => onSaveName()}
+            onChangeText={setCustomRoomNameInput}
+            onSubmitEditing={() => handleSaveCustomRoomName()}
             returnKeyType="done"
             autoCapitalize="sentences"
             autoCorrect={false}
@@ -79,9 +69,9 @@ export const RoomCreatedModal: React.FC<RoomCreatedModalProps> = ({
           <TouchableOpacity 
             style={styles.createdShareActionBtn}
             onPress={() => {
-              onClose();
-              onShareLink();
-              onSaveName().catch?.(() => {});
+              handleClose();
+              handleUniversalShare();
+              handleSaveCustomRoomName().catch?.(() => {});
             }}
             activeOpacity={0.85}
           >
@@ -92,9 +82,9 @@ export const RoomCreatedModal: React.FC<RoomCreatedModalProps> = ({
           <TouchableOpacity 
             style={styles.createdInboxActionBtn}
             onPress={() => {
-              onClose();
-              onGoToInbox();
-              onSaveName().catch?.(() => {});
+              handleClose();
+              setActiveTab('inbox');
+              handleSaveCustomRoomName().catch?.(() => {});
             }}
             activeOpacity={0.85}
           >
@@ -105,8 +95,8 @@ export const RoomCreatedModal: React.FC<RoomCreatedModalProps> = ({
           <TouchableOpacity 
             style={styles.createdDismissActionBtn}
             onPress={() => {
-              onClose();
-              onSaveName().catch?.(() => {});
+              handleClose();
+              handleSaveCustomRoomName().catch?.(() => {});
             }}
             activeOpacity={0.8}
           >
@@ -124,83 +114,92 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    padding: 24,
   },
   joinModalCard: {
     width: '100%',
     backgroundColor: Colors.cardBackground,
     borderRadius: 24,
-    padding: 22,
+    padding: 24,
     borderWidth: 0,
-    shadowOpacity: 0,
-    elevation: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10,
   },
   joinModalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
   },
   joinModalTitle: {
-    color: Colors.textPrimary,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     fontSize: 20,
     fontWeight: '800',
+    color: Colors.textPrimary,
   },
   nameSavedPill: {
-    backgroundColor: 'rgba(255, 59, 105, 0.14)',
-    borderWidth: 0,
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(0, 245, 212, 0.15)',
+    paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: 10,
   },
   nameSavedPillText: {
-    color: Colors.primary,
-    fontSize: 12,
+    color: Colors.secondary,
+    fontSize: 11,
     fontWeight: '700',
   },
   joinModalSubtitle: {
-    color: Colors.textSecondary,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 16,
     lineHeight: 18,
-    marginBottom: 18,
   },
   joinModalInput: {
-    backgroundColor: Colors.surfaceInput,
+    backgroundColor: Colors.surfaceMuted,
     borderRadius: 16,
-    borderWidth: 0,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: Colors.textPrimary,
     fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    borderWidth: 0,
     marginBottom: 16,
   },
   createdShareActionBtn: {
     backgroundColor: Colors.primary,
+    borderRadius: 16,
     paddingVertical: 14,
-    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   createdShareActionText: {
-    color: Colors.textWhite,
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.3,
+    color: '#000000',
+    fontSize: 15,
+    fontWeight: '400',
   },
   createdInboxActionBtn: {
-    backgroundColor: Colors.surfaceInput,
-    borderWidth: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     paddingVertical: 14,
-    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
+    borderWidth: 0,
   },
   createdInboxActionText: {
-    color: Colors.textPrimary,
+    color: '#000000',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '400',
   },
   createdDismissActionBtn: {
     paddingVertical: 10,

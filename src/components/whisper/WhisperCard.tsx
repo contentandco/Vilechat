@@ -11,29 +11,21 @@ import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Camera01Icon } from '@hugeicons/core-free-icons';
 import { copyRoomCodeToClipboard } from '../../services/share';
 import { CARD_THEMES, PROMPTS } from '../../constants';
+import { useAppStore } from '../../store/useAppStore';
+import { useRoomActions } from '../../hooks/useRoomActions';
 
-interface WhisperCardProps {
-  themeIndex: number;
-  promptIndex: number;
-  setPromptIndex: React.Dispatch<React.SetStateAction<number>>;
-  roomCode: string;
-  userNickname?: string;
-  userAvatar?: string;
-  onChangeAvatar?: () => void;
-  isCreated?: boolean;
-}
+export const WhisperCard: React.FC = () => {
+  const whisperRoomCode = useAppStore((s) => s.whisperRoomCode);
+  const activeRoomCode = useAppStore((s) => s.activeRoomCode);
+  const promptIndex = useAppStore((s) => s.promptIndex);
+  const setPromptIndex = useAppStore((s) => s.setPromptIndex);
+  const userNickname = useAppStore((s) => s.userNickname);
+  const userAvatar = useAppStore((s) => s.userAvatar);
 
-export const WhisperCard: React.FC<WhisperCardProps> = ({
-  themeIndex,
-  promptIndex,
-  setPromptIndex,
-  roomCode,
-  userNickname,
-  userAvatar,
-  onChangeAvatar,
-  isCreated = false,
-}) => {
-  const currentTheme = CARD_THEMES[themeIndex] || CARD_THEMES[0];
+  const { handleChangeAvatar } = useRoomActions();
+
+  const currentRoomCode = activeRoomCode || whisperRoomCode;
+  const currentTheme = CARD_THEMES[0];
   const currentPrompt = PROMPTS[promptIndex] || PROMPTS[0];
 
   const handleNextPrompt = () => {
@@ -48,7 +40,7 @@ export const WhisperCard: React.FC<WhisperCardProps> = ({
       <View style={styles.topSection}>
         <TouchableOpacity 
           style={styles.avatarContainer}
-          onPress={onChangeAvatar}
+          onPress={handleChangeAvatar}
           activeOpacity={0.8}
         >
           <View style={styles.avatarCircle}>
@@ -58,155 +50,152 @@ export const WhisperCard: React.FC<WhisperCardProps> = ({
               resizeMode="cover"
             />
           </View>
-          <View style={styles.avatarEditBadge}>
-            <HugeiconsIcon icon={Camera01Icon} size={12} color="#1A1A1E" />
+          <View style={styles.cameraIconBadge}>
+            <HugeiconsIcon icon={Camera01Icon} size={12} color="#FFFFFF" />
           </View>
         </TouchableOpacity>
-        
-        <Text style={styles.userHandleText}>@{cleanHandle}</Text>
-        <Text style={styles.cardCategoryLabel}>secret whispers</Text>
+
+        <Text style={styles.handleText}>@{cleanHandle}</Text>
       </View>
 
-      {/* Main Prompt Question & Next Button */}
+      {/* Main Question / Prompt */}
       <TouchableOpacity 
+        style={styles.promptArea} 
         onPress={handleNextPrompt}
-        style={styles.promptTextBtn}
         activeOpacity={0.85}
       >
-        <Text style={styles.promptQuestionText}>
+        <Text style={styles.promptText}>
           {currentPrompt}
         </Text>
-        
-        <View style={styles.rollPill}>
-          <Text style={styles.rollPillText}>🎲 tap to roll prompt</Text>
-        </View>
       </TouchableOpacity>
 
-      {/* Bottom Status / Room ID Tag */}
-      {isCreated && roomCode ? (
+      {/* Interactive Dice Prompt Switcher Button */}
+      <View style={styles.bottomRow}>
         <TouchableOpacity 
-          style={styles.cardRoomCodeBadge}
-          onPress={() => copyRoomCodeToClipboard(roomCode)}
+          style={styles.diceButton} 
+          onPress={handleNextPrompt}
           activeOpacity={0.7}
         >
-          <Text style={styles.cardRoomCodeLabel}>Room Code: {roomCode}</Text>
+          <Text style={styles.diceIcon}>🎲</Text>
+          <Text style={styles.diceText}>dice</Text>
         </TouchableOpacity>
-      ) : (
-        <View style={styles.cardRoomCodeBadge}>
-          <Text style={styles.cardRoomCodeLabelEmpty}>No active room • Tap Step 1 below</Text>
-        </View>
-      )}
+      </View>
+
+      {/* Ephemeral Notice */}
+      <View style={styles.bottomNotice}>
+        <Text style={styles.bottomNoticeText}>
+          🔒 100% anonymous & encrypted • disappears in 24h
+        </Text>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   whisperCard: {
-    borderRadius: 32,
-    paddingVertical: 36,
-    paddingHorizontal: 22,
-    marginHorizontal: 16,
+    borderRadius: 24,
+    padding: 24,
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 380,
-    borderWidth: 0,
-    shadowOpacity: 0,
-    elevation: 0,
-    position: 'relative',
-    marginBottom: 16,
+    minHeight: 280,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
   },
   topSection: {
     alignItems: 'center',
+    marginBottom: 16,
   },
   avatarContainer: {
     position: 'relative',
     marginBottom: 8,
   },
   avatarCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 2.5,
-    borderColor: '#FFFFFF',
-    backgroundColor: '#C5CBD3',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   avatarImg: {
-    width: 65,
-    height: 65,
-    borderRadius: 32.5,
+    width: '100%',
+    height: '100%',
   },
-  avatarEditBadge: {
+  cameraIconBadge: {
     position: 'absolute',
     bottom: -2,
     right: -2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FF2A6D',
     width: 22,
     height: 22,
     borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 3,
+    borderWidth: 2,
+    borderColor: '#3C291E',
   },
-  userHandleText: {
+  handleText: {
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
-    letterSpacing: -0.2,
+    letterSpacing: 0.3,
   },
-  cardCategoryLabel: {
-    color: 'rgba(255, 255, 255, 0.65)',
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  promptTextBtn: {
-    paddingHorizontal: 12,
-    marginVertical: 10,
+  promptArea: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
-  promptQuestionText: {
-    fontSize: 23,
-    fontWeight: '700',
+  promptText: {
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+    fontSize: 22,
+    fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
-    letterSpacing: -0.3,
     lineHeight: 30,
+    letterSpacing: -0.3,
   },
-  rollPill: {
-    marginTop: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
+  bottomRow: {
+    marginTop: 12,
+    marginBottom: 12,
   },
-  rollPillText: {
+  diceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  diceIcon: {
+    fontSize: 16,
+  },
+  diceText: {
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
   },
-  cardRoomCodeBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.28)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 14,
+  bottomNotice: {
+    marginTop: 4,
   },
-  cardRoomCodeLabel: {
-    color: 'rgba(255, 255, 255, 0.95)',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  bottomNoticeText: {
     fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  cardRoomCodeLabelEmpty: {
-    color: 'rgba(255, 255, 255, 0.75)',
-    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.45)',
     fontWeight: '500',
-    letterSpacing: 0.2,
+    textAlign: 'center',
   },
 });

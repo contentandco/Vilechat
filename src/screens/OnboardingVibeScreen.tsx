@@ -10,52 +10,9 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons';
 import { Colors } from '../constants/theme';
+import { VIBE_OPTIONS, VibeOption } from '../constants/vibes';
 
-export interface VibeOption {
-  id: string;
-  emoji: string;
-  title: string;
-  subtitle: string;
-  promptIndex: number;
-}
-
-export const VIBE_OPTIONS: VibeOption[] = [
-  {
-    id: 'confessions',
-    emoji: '🤫',
-    title: 'Secret Confessions',
-    subtitle: 'Drop truths, secrets & tea',
-    promptIndex: 2, // "tell me a secret you never told anyone 🔥"
-  },
-  {
-    id: 'ama',
-    emoji: '🔥',
-    title: 'Ask Me Anything',
-    subtitle: 'Answer spicy & fun questions',
-    promptIndex: 1, // "ask me anything... 🤫"
-  },
-  {
-    id: 'latenight',
-    emoji: '💬',
-    title: 'Late Night Chats',
-    subtitle: 'Deep anonymous talks with friends',
-    promptIndex: 0, // "send me anonymous messages!"
-  },
-  {
-    id: 'crush',
-    emoji: '💘',
-    title: 'Crush & Truths',
-    subtitle: 'Anonymous compliments & crushes',
-    promptIndex: 4, // "drop a confession or truth 💖"
-  },
-  {
-    id: 'roast',
-    emoji: '😂',
-    title: 'Roast Me Anonymously',
-    subtitle: 'No filter, pure fun roasts',
-    promptIndex: 5, // "roast me anonymously 😂"
-  },
-];
+export { VibeOption, VIBE_OPTIONS };
 
 interface OnboardingVibeScreenProps {
   onBack: () => void;
@@ -68,43 +25,41 @@ export const OnboardingVibeScreen: React.FC<OnboardingVibeScreenProps> = ({
 }) => {
   const [selectedId, setSelectedId] = useState<string>('confessions');
 
-  const handleContinue = () => {
-    const chosen = VIBE_OPTIONS.find((v) => v.id === selectedId) || VIBE_OPTIONS[0];
-    onContinue(chosen);
-  };
+  const selectedVibe = VIBE_OPTIONS.find((v) => v.id === selectedId) || VIBE_OPTIONS[0];
 
   return (
     <View style={styles.container}>
-      {/* Top Header */}
+      {/* Top Header with Back Button */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
           <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
-      {/* Screen Title */}
-      <View style={styles.titleContainer}>
-        <Text style={styles.titleText}>What's your anonymous vibe?</Text>
-      </View>
-
-      {/* Vibe Option Cards */}
+      {/* Main Content */}
       <ScrollView 
-        style={styles.optionsScroll} 
-        contentContainerStyle={styles.optionsContent}
+        style={styles.scroll} 
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {VIBE_OPTIONS.map((vibe) => {
-          const isSelected = vibe.id === selectedId;
-          return (
-            <TouchableOpacity
-              key={vibe.id}
-              style={[styles.vibeCard, isSelected && styles.vibeCardSelected]}
-              onPress={() => setSelectedId(vibe.id)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.vibeLeft}>
-                <View style={styles.emojiCircle}>
-                  <Text style={styles.emojiText}>{vibe.emoji}</Text>
+        <Text style={styles.title}>Pick Your Daily Vibe 🔥</Text>
+        <Text style={styles.subtitle}>
+          Choose the question card you want on your story to get the most juicy anonymous confessions.
+        </Text>
+
+        {/* Options List */}
+        <View style={styles.optionsList}>
+          {VIBE_OPTIONS.map((vibe) => {
+            const isSelected = vibe.id === selectedId;
+            return (
+              <TouchableOpacity
+                key={vibe.id}
+                style={[styles.vibeCard, isSelected && styles.vibeCardSelected]}
+                onPress={() => setSelectedId(vibe.id)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.vibeEmojiWrapper}>
+                  <Text style={styles.vibeEmoji}>{vibe.emoji}</Text>
                 </View>
                 <View style={styles.vibeTextContainer}>
                   <Text style={[styles.vibeTitle, isSelected && styles.vibeTitleSelected]}>
@@ -112,25 +67,23 @@ export const OnboardingVibeScreen: React.FC<OnboardingVibeScreenProps> = ({
                   </Text>
                   <Text style={styles.vibeSubtitle}>{vibe.subtitle}</Text>
                 </View>
-              </View>
-
-              {/* Radio Indicator */}
-              <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                {isSelected && <View style={styles.radioDot} />}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+                <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                  {isSelected && <View style={styles.radioInner} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </ScrollView>
 
-      {/* Bottom Continue CTA */}
-      <View style={styles.bottomContainer}>
+      {/* Bottom Sticky Continue Button */}
+      <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.continueBtn}
-          onPress={handleContinue}
-          activeOpacity={0.9}
+          onPress={() => onContinue(selectedVibe)}
+          activeOpacity={0.85}
         >
-          <Text style={styles.continueBtnText}>Continue</Text>
+          <Text style={styles.continueBtnText}>Continue →</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -141,128 +94,121 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingTop: Platform.OS === 'ios' ? 54 : 32,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
-    paddingHorizontal: 20,
-    justifyContent: 'space-between',
   },
   header: {
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 12 : 16,
+    paddingBottom: 8,
   },
   backBtn: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.surfaceMuted,
     justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  titleContainer: {
-    paddingHorizontal: 12,
-    paddingVertical: 14,
     alignItems: 'center',
-    marginBottom: 8,
   },
-  titleText: {
-    color: Colors.textPrimary,
-    fontSize: 26,
-    fontWeight: '900',
-    textAlign: 'center',
-    letterSpacing: -0.5,
-    lineHeight: 34,
-  },
-  optionsScroll: {
+  scroll: {
     flex: 1,
   },
-  optionsContent: {
-    paddingVertical: 10,
-    gap: 14,
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  optionsList: {
+    gap: 12,
   },
   vibeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#1E2738',
-    borderRadius: 26,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    borderWidth: 2,
+    backgroundColor: Colors.cardBackground,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1.5,
     borderColor: 'transparent',
   },
   vibeCardSelected: {
-    backgroundColor: '#27344C',
-    borderColor: '#FFFFFF',
+    borderColor: Colors.primary,
+    backgroundColor: 'rgba(255, 59, 105, 0.08)',
   },
-  vibeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  emojiCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.cardBackground,
+  vibeEmojiWrapper: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: Colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
   },
-  emojiText: {
+  vibeEmoji: {
     fontSize: 22,
   },
   vibeTextContainer: {
     flex: 1,
   },
   vibeTitle: {
-    color: Colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 2,
+    color: Colors.textPrimary,
+    marginBottom: 3,
   },
   vibeTitleSelected: {
-    color: '#FFFFFF',
-    fontWeight: '800',
+    color: Colors.textPrimary,
   },
   vibeSubtitle: {
-    color: Colors.textSecondary,
     fontSize: 12,
-    fontWeight: '500',
+    color: Colors.textMuted,
+    lineHeight: 16,
   },
   radioCircle: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#4A5B75',
+    borderColor: Colors.textMuted,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,
   },
   radioCircleSelected: {
-    borderColor: '#FFFFFF',
-    backgroundColor: '#FFFFFF',
+    borderColor: Colors.primary,
   },
-  radioDot: {
+  radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#101624',
+    backgroundColor: Colors.primary,
   },
-  bottomContainer: {
-    paddingTop: 12,
+  bottomBar: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   continueBtn: {
-    width: '100%',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 18,
-    borderRadius: 32,
+    paddingVertical: 16,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOpacity: 0,
-    elevation: 0,
   },
   continueBtnText: {
     color: '#000000',
-    fontSize: 18,
-    fontWeight: 'normal',
-    letterSpacing: -0.2,
+    fontSize: 16,
+    fontWeight: '400',
   },
 });

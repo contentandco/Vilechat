@@ -3,22 +3,16 @@ import { StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { PlusSignIcon, SentIcon } from '@hugeicons/core-free-icons';
 import { Colors } from '../../constants/theme';
+import { useRoomActions } from '../../hooks/useRoomActions';
 
-interface ShareDrawerProps {
-  roomCode: string;
-  loading: boolean;
-  roomCreatedFeedback: boolean;
-  onCreateNewRoom: () => void;
-  onUniversalShare: () => void;
-}
+export const ShareDrawer: React.FC = () => {
+  const {
+    loading,
+    nameSavedFeedback,
+    handleCreateNewWhisperRoom,
+    handleUniversalShare,
+  } = useRoomActions();
 
-export const ShareDrawer: React.FC<ShareDrawerProps> = ({
-  roomCode,
-  loading,
-  roomCreatedFeedback,
-  onCreateNewRoom,
-  onUniversalShare,
-}) => {
   return (
     <View style={styles.shareDrawerCard}>
       {/* Step 1: Create your room */}
@@ -27,19 +21,19 @@ export const ShareDrawer: React.FC<ShareDrawerProps> = ({
       {/* Step 1 Button: Create Room */}
       <View style={styles.step1ButtonsRow}>
         <TouchableOpacity 
-          style={[styles.step1CreateBtn, roomCreatedFeedback && styles.step1CreateBtnSuccess]} 
-          onPress={onCreateNewRoom} 
+          style={[styles.step1CreateBtn, nameSavedFeedback && styles.step1CreateBtnSuccess]} 
+          onPress={handleCreateNewWhisperRoom} 
           disabled={loading}
           activeOpacity={0.8}
         >
           <HugeiconsIcon 
-            icon={roomCreatedFeedback ? SentIcon : PlusSignIcon} 
+            icon={nameSavedFeedback ? SentIcon : PlusSignIcon} 
             size={15} 
-            color={roomCreatedFeedback ? Colors.secondary : Colors.primary} 
+            color={nameSavedFeedback ? Colors.secondary : Colors.primary} 
           />
           <View style={styles.iconTextSpacer} />
-          <Text style={[styles.step1CreateBtnText, roomCreatedFeedback && styles.step1CreateBtnTextSuccess]}>
-            {roomCreatedFeedback ? 'Room Created in Inbox! ✓' : 'Create Room'}
+          <Text style={[styles.step1CreateBtnText, nameSavedFeedback && styles.step1CreateBtnTextSuccess]}>
+            {nameSavedFeedback ? 'Room Created in Inbox! ✓' : 'Create Room'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -49,7 +43,7 @@ export const ShareDrawer: React.FC<ShareDrawerProps> = ({
       
       <TouchableOpacity 
         style={styles.mainShareBtn} 
-        onPress={onUniversalShare} 
+        onPress={handleUniversalShare} 
         activeOpacity={0.85}
       >
         <Text style={styles.mainShareBtnText}>Share!</Text>
@@ -62,83 +56,70 @@ const styles = StyleSheet.create({
   shareDrawerCard: {
     backgroundColor: Colors.cardBackground,
     borderRadius: 24,
-    padding: 22,
-    marginHorizontal: 16,
-    borderWidth: 0,
-    marginTop: 20,
-    marginBottom: 24,
-    alignItems: 'center',
-    shadowOpacity: 0,
-    elevation: 0,
+    padding: 20,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   shareStepTitle: {
-    fontSize: 17,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
+    color: Colors.textSecondary,
+    fontSize: 13,
     fontWeight: '600',
-    color: Colors.textWhite,
-    textAlign: 'center',
-    marginBottom: 16,
-    letterSpacing: -0.2,
+    marginBottom: 12,
+    letterSpacing: 0.2,
   },
   step2Title: {
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  shareStepSubtitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: Colors.textMuted,
-    marginBottom: 14,
-    textAlign: 'center',
+    marginTop: 20,
   },
   step1ButtonsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 10,
-    width: '100%',
   },
   step1CreateBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    paddingVertical: 6,
-    paddingHorizontal: 18,
+    backgroundColor: Colors.surfaceMuted,
+    paddingVertical: 14,
     borderRadius: 16,
-  },
-  iconTextSpacer: {
-    width: 8,
-  },
-  step1CreateBtnText: {
-    color: Colors.primary,
-    fontSize: 13,
-    fontWeight: '700',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   step1CreateBtnSuccess: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: 'rgba(0, 245, 212, 0.12)',
+    borderColor: Colors.secondary,
+  },
+  step1CreateBtnText: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
   },
   step1CreateBtnTextSuccess: {
-    color: Colors.primary,
+    color: Colors.secondary,
+  },
+  iconTextSpacer: {
+    width: 6,
   },
   mainShareBtn: {
     backgroundColor: Colors.primary,
-    width: '100%',
-    paddingVertical: 18,
-    borderRadius: 28,
+    paddingVertical: 16,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
-    shadowOpacity: 0,
-    elevation: 0,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
   },
   mainShareBtnText: {
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     color: Colors.textWhite,
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 });
