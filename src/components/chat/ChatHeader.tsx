@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import { ArrowLeft01Icon, MoreVerticalIcon } from '@hugeicons/core-free-icons';
 import { Colors } from '../../constants/theme';
 
 interface ChatHeaderProps {
@@ -42,7 +42,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <Text style={styles.roomCodeTitle} numberOfLines={1}>
               {roomName}
             </Text>
-            <HugeiconsIcon icon={ArrowRight01Icon} size={13} color={Colors.textMuted} style={{ marginLeft: 4 }} />
           </View>
           <View style={styles.statusRow}>
             <View style={styles.activeDot} />
@@ -53,7 +52,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         </View>
       </TouchableOpacity>
 
-      <View style={styles.chatHeaderRight} />
+      {/* 3-Dot Options Button */}
+      <TouchableOpacity 
+        style={styles.chatHeaderRightBtn} 
+        onPress={onOpenRoomInfo}
+        activeOpacity={0.7}
+      >
+        <HugeiconsIcon icon={MoreVerticalIcon} size={22} color={Colors.textPrimary} />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -65,6 +71,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
     backgroundColor: Colors.background,
   },
   chatHeaderLeft: {
@@ -102,7 +110,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
     letterSpacing: -0.2,
-    maxWidth: 180,
+    maxWidth: 200,
   },
   statusRow: {
     flexDirection: 'row',
@@ -121,8 +129,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
-  chatHeaderRight: {
+  chatHeaderRightBtn: {
     padding: 6,
-    width: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

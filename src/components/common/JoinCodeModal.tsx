@@ -56,10 +56,12 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({
 
           <TextInput
             style={styles.joinModalInput}
-            placeholder="e.g. funny-tiger-42 or paste link..."
+            placeholder="e.g. VL-8492 or paste link..."
             placeholderTextColor={Colors.textMuted}
             value={roomCodeInput}
             onChangeText={setRoomCodeInput}
+            selectionColor="#FFFFFF"
+            cursorColor="#FFFFFF"
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus={true}
@@ -86,7 +88,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({
 const styles = StyleSheet.create({
   joinModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -96,8 +98,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cardBackground,
     borderRadius: 24,
     padding: 22,
-    borderWidth: 1,
-    borderColor: Colors.border,
     shadowOpacity: 0,
     elevation: 0,
   },

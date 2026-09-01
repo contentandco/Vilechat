@@ -4,13 +4,14 @@ import { SafeAreaProvider, SafeAreaView as RNSafeAreaView } from 'react-native-s
 import { QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
+import * as ImagePicker from 'expo-image-picker';
 
 // Query Client & Zustand Store
 import { queryClient } from './src/lib/queryClient';
 import { useAppStore } from './src/store/useAppStore';
 
 // Types and Constants
-import { ActiveRoomDetail } from './src/types';
+import { ActiveRoomDetail, MessageItem } from './src/types';
 import { Colors } from './src/constants/theme';
 import { generateRoomCode } from './src/lib/encryption';
 import { supabase } from './src/lib/supabase';
@@ -20,6 +21,7 @@ import {
   clearAllUserData,
   getPausedRoomCodes,
   setRoomLastRead,
+  getLocalRoomMessages,
 } from './src/services/storage';
 import { shareRoomLink } from './src/services/share';
 import {
@@ -130,6 +132,24 @@ function MainApp() {
     refetch: refetchInbox,
   } = useInboxRooms(deviceId);
 
+  // Hydrate local disk-cached messages into QueryClient on startup for 0ms cold loads
+  useEffect(() => {
+    if (verifiedActiveRooms.length > 0) {
+      verifiedActiveRooms.slice(0, 10).forEach(async (room) => {
+        try {
+          const cachedMsgs = await getLocalRoomMessages(room.code);
+          if (cachedMsgs.length > 0) {
+            const key = room.id || room.code;
+            qc.setQueryData<MessageItem[]>(
+              messageKeys.room(key),
+              (existing) => (existing && existing.length > 0 ? existing : cachedMsgs)
+            );
+          }
+        } catch (e) {}
+      });
+    }
+  }, [verifiedActiveRooms]);
+
   const { mutateAsync: saveRecentRoomMutation } = useSaveRecentRoomMutation(deviceId);
   const { mutateAsync: deleteRoomsMutation } = useDeleteRoomsMutation(deviceId);
   const { mutateAsync: markRoomReadMutation } = useMarkRoomReadMutation(deviceId);
@@ -146,11 +166,10 @@ function MainApp() {
   const handleLeaveRoom = async () => {
     const code = activeRoomCode;
     if (code) {
-      await setRoomLastRead(code, Date.now());
+      setRoomLastRead(code, Date.now()).catch(() => {});
       markRoomReadMutation(code);
     }
     leaveRoom();
-    refetchInbox();
   };
 
   // Explicitly Leave & Remove room from inbox and device sessions
@@ -193,6 +212,7 @@ function MainApp() {
     setShowJoinCodeModal,
     setShowRoomInfo,
     setActiveTab,
+    setCurrentScreen,
     handleLeaveRoom,
   });
 
@@ -225,10 +245,6 @@ function MainApp() {
           if (newMsg?.room_id) {
             qc.invalidateQueries({ queryKey: messageKeys.room(newMsg.room_id) });
           }
-          if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-          debounceTimerRef.current = setTimeout(() => {
-            qc.invalidateQueries({ queryKey: inboxKeys.byDevice(deviceId) });
-          }, 300);
         }
       )
       .on(
@@ -238,30 +254,25 @@ function MainApp() {
           const payload = event.payload;
           if (!payload) return;
 
-          // Instant 0ms optimistic cache mutation: Show 'New' badge & sort room to top immediately
+          // Instant 0ms optimistic cache mutation: Pop room directly to top with 'New' badge
           const targetCode = (payload.roomCode || '').toLowerCase();
           if (targetCode) {
             qc.setQueryData<ActiveRoomDetail[]>(
               inboxKeys.byDevice(deviceId),
               (old = []) => {
-                let matched = false;
-                const updated = old.map((r) => {
-                  if (r.code.toLowerCase() === targetCode) {
-                    matched = true;
-                    return { ...r, hasUnread: true };
-                  }
-                  return r;
-                });
-                if (!matched && payload.roomCode) {
-                  updated.unshift({
-                    code: payload.roomCode,
-                    name: payload.roomCode,
-                    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-                    hasUnread: true,
-                  });
-                }
-                updated.sort((a, b) => (a.hasUnread === b.hasUnread ? 0 : a.hasUnread ? -1 : 1));
-                return updated;
+                const targetRoom = old.find((r) => r.code.toLowerCase() === targetCode);
+                const remainingRooms = old.filter((r) => r.code.toLowerCase() !== targetCode);
+
+                const updatedRoom: ActiveRoomDetail = targetRoom
+                  ? { ...targetRoom, hasUnread: true }
+                  : {
+                      code: payload.roomCode,
+                      name: payload.roomCode,
+                      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                      hasUnread: true,
+                    };
+
+                return [updatedRoom, ...remainingRooms];
               }
             );
           }
@@ -334,6 +345,36 @@ function MainApp() {
       return;
     }
 
+    // 1. Instant 0ms transition if room is already cached in inbox
+    const existingRoom = verifiedActiveRooms.find((r) => r.code.toLowerCase() === cleanCode);
+    if (existingRoom) {
+      enterRoom({
+        id: existingRoom.id || '',
+        code: existingRoom.code,
+        name: existingRoom.name || existingRoom.code,
+        expires_at: existingRoom.expires_at,
+        creator_device_id: '',
+        creator_id: '',
+      });
+      markRoomReadMutation(cleanCode);
+      setShowJoinCodeModal(false);
+
+      // Enrich details in background without blocking navigation
+      fetchRoomByCode(cleanCode)
+        .then((room) => {
+          useAppStore.setState({
+            activeRoomId: room.id,
+            activeRoomName: room.resolvedName,
+            roomExpiresAt: room.expires_at,
+            roomCreatorDeviceId: room.creator_device_id || '',
+            roomCreatorId: room.creator_id || '',
+          });
+        })
+        .catch(() => {});
+      return;
+    }
+
+    // 2. Joining a new room from link or modal
     setLoading(true);
     try {
       const room = await fetchRoomByCode(cleanCode);
@@ -346,7 +387,7 @@ function MainApp() {
         creator_id: room.creator_id || '',
       });
 
-      // Save to recent and mark read
+      // Save newly joined room to inbox
       saveRecentRoomMutation({ code: room.code, name: room.resolvedName });
       markRoomReadMutation(cleanCode);
     } catch (err: any) {
@@ -405,16 +446,19 @@ function MainApp() {
       setLoading(true);
       setShowSettingsModal(false);
       if (deviceId && verifiedActiveRooms.length > 0) {
-        await deleteRoomsMutation(verifiedActiveRooms.map((r) => r.code));
+        try {
+          await deleteRoomsMutation(verifiedActiveRooms.map((r) => r.code));
+        } catch (e) {}
       }
       await clearAllUserData();
-      qc.clear();
+      queryClient.clear();
       resetAllState();
+      setCurrentScreen('welcome');
 
       if (Platform.OS === 'android') {
-        ToastAndroid.show('Account deleted successfully.', ToastAndroid.SHORT);
+        ToastAndroid.show('Account deleted. Starting fresh!', ToastAndroid.SHORT);
       } else {
-        Alert.alert('Account Deleted', 'Your account and local data have been completely wiped.');
+        Alert.alert('Account Deleted', 'All data has been wiped. You can now start fresh.');
       }
     } catch (err) {
       Alert.alert('Error', 'Failed to completely wipe account data.');
@@ -432,7 +476,6 @@ function MainApp() {
       ToastAndroid.show('Room link copied to clipboard! 📋', ToastAndroid.SHORT);
     }
 
-    saveRecentRoomMutation({ code: newCode });
     setShowCreatedModal(true);
 
     try {
@@ -446,7 +489,6 @@ function MainApp() {
     const targetCode = activeRoomCode || whisperRoomCode;
     try {
       await createRoomMutation({ code: targetCode });
-      saveRecentRoomMutation({ code: targetCode });
     } catch (e) {
       console.warn('createRoomInDB warning on universal share:', e);
     }
@@ -468,6 +510,29 @@ function MainApp() {
     } catch (e) {}
   };
 
+  const handleChangeAvatar = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Needed', 'We need photo library access to change your avatar.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        base64: true,
+      });
+      if (!result.canceled && result.assets && result.assets[0].base64) {
+        const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
+        await setUserAvatar(base64Data);
+      }
+    } catch (e) {
+      console.warn('Failed to update avatar:', e);
+    }
+  };
+
   const handleDeleteSelectedRooms = async () => {
     if (selectedRoomCodes.length === 0) return;
     await deleteRoomsMutation(selectedRoomCodes);
@@ -477,29 +542,15 @@ function MainApp() {
 
   return (
     <SafeAreaProvider>
-      <RNSafeAreaView style={styles.container}>
-        <StatusBar 
-          barStyle="light-content" 
-          backgroundColor={
-            isSplashActive 
-              ? '#FF2A6D' 
-              : currentScreen === 'welcome' 
-              ? '#E5006C' 
-              : Colors.background
-          } 
-        />
+      <RNSafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
 
-        {/* Initial Animated Launch Splash Screen */}
-        {isSplashActive ? (
-          <SplashScreen onFinish={() => setIsSplashActive(false)} />
-        ) : (
-          <>
-            {/* Step 1: Welcome Onboarding Screen */}
-            {currentScreen === 'welcome' && (
-              <WelcomeScreen onGetStarted={handleGetStarted} />
-            )}
+        {/* Step 1: Welcome / Splash Screen */}
+        {currentScreen === 'welcome' && (
+          <WelcomeScreen onGetStarted={() => setCurrentScreen('onboarding-vibe')} />
+        )}
 
-        {/* Step 2: Choose Your Anonymous Vibe Screen */}
+        {/* Step 2: Daily Vibe Screen */}
         {currentScreen === 'onboarding-vibe' && (
           <OnboardingVibeScreen
             onBack={() => setCurrentScreen('welcome')}
@@ -538,7 +589,7 @@ function MainApp() {
             activeRoomCode={activeRoomCode}
             userNickname={userNickname}
             userAvatar={userAvatar}
-            onRandomizeNickname={randomizeNickname}
+            onChangeAvatar={handleChangeAvatar}
             onCreateNewWhisperRoom={handleCreateNewWhisperRoom}
             onUniversalShare={handleUniversalShare}
             roomCreatedFeedback={roomCreatedFeedback}
@@ -619,8 +670,6 @@ function MainApp() {
           onShareLink={handleUniversalShare}
           onGoToInbox={() => setActiveTab('inbox')}
         />
-          </>
-        )}
       </RNSafeAreaView>
     </SafeAreaProvider>
   );

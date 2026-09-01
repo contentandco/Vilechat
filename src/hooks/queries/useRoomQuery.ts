@@ -42,20 +42,23 @@ export function useCreateRoomMutation(deviceId: string, userId: string) {
       // Seed detail cache
       queryClient.setQueryData(roomKeys.detail(data.code), data);
 
-      // Optimistically add to inbox cache
+      // Optimistically add to inbox cache with strict case-insensitive deduplication
       queryClient.setQueryData<ActiveRoomDetail[]>(
         inboxKeys.byDevice(deviceId),
         (old = []) => {
-          if (old.some((r) => r.code === data.code)) return old;
-          return [
-            {
-              code: data.code,
-              name: data.name || data.code,
-              expires_at: data.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-              hasUnread: false,
-            },
-            ...old,
-          ];
+          const cleanCode = data.code.trim().toLowerCase();
+          const exists = old.find((r) => r.code.trim().toLowerCase() === cleanCode);
+          const remaining = old.filter((r) => r.code.trim().toLowerCase() !== cleanCode);
+          const updated: ActiveRoomDetail = exists
+            ? { ...exists, id: data.id || exists.id, name: data.name || exists.name }
+            : {
+                id: data.id,
+                code: data.code,
+                name: data.name || data.code,
+                expires_at: data.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                hasUnread: false,
+              };
+          return [updated, ...remaining];
         }
       );
     },

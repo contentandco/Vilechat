@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { PlusSignIcon, SentIcon } from '@hugeicons/core-free-icons';
 import { Colors } from '../../constants/theme';
@@ -23,10 +23,6 @@ export const ShareDrawer: React.FC<ShareDrawerProps> = ({
     <View style={styles.shareDrawerCard}>
       {/* Step 1: Create your room */}
       <Text style={styles.shareStepTitle}>Step 1: Create your room</Text>
-
-      <Text style={styles.shareStepSubtitle} numberOfLines={1}>
-        vailchat.com/join?code={roomCode}
-      </Text>
       
       {/* Step 1 Button: Create Room */}
       <View style={styles.step1ButtonsRow}>
@@ -67,8 +63,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cardBackground,
     borderRadius: 24,
     padding: 22,
+    marginHorizontal: 16,
     borderWidth: 0,
-    marginTop: 34,
+    marginTop: 20,
     marginBottom: 24,
     alignItems: 'center',
     shadowOpacity: 0,
@@ -79,12 +76,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textWhite,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 16,
     letterSpacing: -0.2,
   },
   step2Title: {
     marginTop: 24,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   shareStepSubtitle: {
     fontSize: 12,

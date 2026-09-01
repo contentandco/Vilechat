@@ -2,11 +2,10 @@ import React, { useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
-  Platform,
   Dimensions,
   Animated,
+  Image,
 } from 'react-native';
-import Svg, { Text as SvgText } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
@@ -65,37 +64,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           },
         ]}
       >
-        <Svg height="160" width={Math.min(width - 32, 340)} viewBox="0 0 340 160">
-          {/* Outer Thick Black Outline & 3D Shadow */}
-          <SvgText
-            x="170"
-            y="110"
-            fill="#000000"
-            stroke="#000000"
-            strokeWidth="28"
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            fontSize="92"
-            fontWeight="900"
-            textAnchor="middle"
-            fontFamily={Platform.OS === 'ios' ? 'Arial-Black' : 'sans-serif-black'}
-          >
-            VAIL
-          </SvgText>
-
-          {/* Inner Crisp White Bubble Fill */}
-          <SvgText
-            x="170"
-            y="110"
-            fill="#FFFFFF"
-            fontSize="92"
-            fontWeight="900"
-            textAnchor="middle"
-            fontFamily={Platform.OS === 'ios' ? 'Arial-Black' : 'sans-serif-black'}
-          >
-            VAIL
-          </SvgText>
-        </Svg>
+        <Image
+          source={require('../../assets/logo-transparent.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
       </Animated.View>
     </View>
   );
@@ -111,5 +84,9 @@ const styles = StyleSheet.create({
   logoWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logoImage: {
+    width: Math.min(width - 48, 300),
+    height: 160,
   },
 });

@@ -19,13 +19,30 @@ export function generateClientUUID(): string {
 export async function fetchRoomMessages(
   roomId: string, 
   roomCode: string, 
-  limit: number = 20, 
+  limit: number = 50, 
   beforeCreatedAt?: string
 ): Promise<MessageItem[]> {
+  let resolvedRoomId = roomId;
+
+  if (!resolvedRoomId && roomCode) {
+    try {
+      const { data: roomData } = await supabase
+        .from('rooms')
+        .select('id')
+        .ilike('code', roomCode.trim().toLowerCase())
+        .single();
+      if (roomData?.id) {
+        resolvedRoomId = roomData.id;
+      }
+    } catch (e) {}
+  }
+
+  if (!resolvedRoomId) return [];
+
   let query = supabase
     .from('messages')
     .select('id, sender_id, sender_name, content_encrypted, is_image, is_voice, is_sticker, created_at')
-    .eq('room_id', roomId);
+    .eq('room_id', resolvedRoomId);
 
   if (beforeCreatedAt) {
     query = query.lt('created_at', beforeCreatedAt);
@@ -146,11 +163,10 @@ export async function sendSystemJoinMessage(
   userNickname: string,
   isCreator: boolean = false
 ) {
+  if (isCreator) return;
   try {
     const cleanName = (userNickname || 'Anonymous').replace(/^@+/, '');
-    const announcement = isCreator 
-      ? `New room` 
-      : `@${cleanName} joined the room`;
+    const announcement = `@${cleanName} joined`;
 
     await sendEncryptedMessage({
       roomId,
@@ -165,13 +181,21 @@ export async function sendSystemJoinMessage(
   }
 }
 
+export interface RoomPresenceUser {
+  userId: string;
+  nickname: string;
+}
+
 /**
- * Subscribes to real-time incoming messages for an active room with dual-channel (postgres_changes + broadcast) listeners.
+ * Subscribes to real-time incoming messages and live Presence for an active room.
  */
 export function subscribeToRoomMessages(
   roomId: string,
   roomCode: string,
-  onNewMessage: (msg: MessageItem) => void
+  onNewMessage: (msg: MessageItem) => void,
+  currentUserId?: string,
+  currentUserNickname?: string,
+  onPresenceChange?: (users: RoomPresenceUser[]) => void
 ) {
   const handleIncomingPayload = (newMsg: any) => {
     if (!newMsg || !newMsg.content_encrypted) return;
@@ -194,7 +218,13 @@ export function subscribeToRoomMessages(
   };
 
   const channel = supabase
-    .channel(`room_${roomId}`)
+    .channel(`room_${roomId}`, {
+      config: {
+        presence: {
+          key: currentUserId || 'anon',
+        },
+      },
+    })
     .on(
       'postgres_changes',
       {
@@ -213,10 +243,54 @@ export function subscribeToRoomMessages(
       (event) => {
         handleIncomingPayload(event.payload);
       }
-    )
-    .subscribe();
+    );
+
+  const syncPresence = () => {
+    if (!onPresenceChange) return;
+    const state = channel.presenceState();
+    const activeMap = new Map<string, RoomPresenceUser>();
+
+    for (const key in state) {
+      const presences = state[key] as any[];
+      for (const p of presences) {
+        if (p?.userId) {
+          activeMap.set(p.userId, {
+            userId: p.userId,
+            nickname: p.nickname || 'Anonymous',
+          });
+        }
+      }
+    }
+
+    // Always ensure current user is in presence if defined
+    if (currentUserId && !activeMap.has(currentUserId)) {
+      activeMap.set(currentUserId, {
+        userId: currentUserId,
+        nickname: currentUserNickname || 'You',
+      });
+    }
+
+    onPresenceChange(Array.from(activeMap.values()));
+  };
+
+  channel
+    .on('presence', { event: 'sync' }, syncPresence)
+    .on('presence', { event: 'join' }, syncPresence)
+    .on('presence', { event: 'leave' }, syncPresence)
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED' && currentUserId) {
+        try {
+          await channel.track({
+            userId: currentUserId,
+            nickname: currentUserNickname || 'Anonymous',
+            onlineAt: new Date().toISOString(),
+          });
+        } catch (e) {}
+      }
+    });
 
   return () => {
+    channel.untrack().catch(() => {});
     supabase.removeChannel(channel);
   };
 }

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { RecentRoom } from '../types';
+import { RecentRoom, MessageItem } from '../types';
 
 const STORAGE_KEYS = {
   DEVICE_ID: 'vailchat_device_id',
@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   SEEN_WELCOME: 'vailchat_seen_welcome',
   PAUSED_ROOMS: 'vailchat_paused_rooms',
   ROOM_LAST_READ: 'vailchat_room_last_read_',
+  ROOM_MSGS: 'vailchat_room_msgs_',
 };
 
 // In-memory fallback in case native storage is unavailable in web / test environments
@@ -218,6 +219,33 @@ export async function setRoomLastRead(code: string, timestamp: number = Date.now
   try {
     await safeSetItem(`${STORAGE_KEYS.ROOM_LAST_READ}${code.toLowerCase()}`, timestamp.toString());
   } catch (e) {}
+}
+
+/**
+ * Saves cached messages for a room to local persistent storage for 0ms instant cold load.
+ */
+export async function saveLocalRoomMessages(roomCode: string, messages: MessageItem[]): Promise<void> {
+  try {
+    if (!roomCode || !messages || messages.length === 0) return;
+    const clean = roomCode.trim().toLowerCase();
+    const subset = messages.slice(-50);
+    await safeSetItem(`${STORAGE_KEYS.ROOM_MSGS}${clean}`, JSON.stringify(subset));
+  } catch (e) {}
+}
+
+/**
+ * Retrieves cached messages for a room from local persistent storage.
+ */
+export async function getLocalRoomMessages(roomCode: string): Promise<MessageItem[]> {
+  try {
+    if (!roomCode) return [];
+    const clean = roomCode.trim().toLowerCase();
+    const raw = await safeGetItem(`${STORAGE_KEYS.ROOM_MSGS}${clean}`);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (e) {}
+  return [];
 }
 
 /**

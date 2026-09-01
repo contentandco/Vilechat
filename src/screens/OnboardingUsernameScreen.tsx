@@ -52,12 +52,15 @@ export const OnboardingUsernameScreen: React.FC<OnboardingUsernameScreenProps> =
 
         {/* Username Input Pill */}
         <View style={styles.inputPillContainer}>
+          <Text style={styles.atPrefix}>@</Text>
           <TextInput
             style={styles.usernameInput}
-            placeholder="@"
+            placeholder="username"
             placeholderTextColor="#6F7B8C"
-            value={usernameInput}
-            onChangeText={setUsernameInput}
+            value={usernameInput.replace(/^@+/, '')}
+            onChangeText={(text) => setUsernameInput(text.replace(/^@+/, ''))}
+            selectionColor="#FFFFFF"
+            cursorColor="#FFFFFF"
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus={true}
@@ -119,19 +122,23 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#1E2738',
     borderRadius: 30,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 14,
-    borderWidth: 1.5,
-    borderColor: '#2D3A50',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  atPrefix: {
+    color: '#6F7B8C',
+    fontSize: 22,
+    fontWeight: '700',
+    marginRight: 6,
   },
   usernameInput: {
-    width: '100%',
+    flex: 1,
     color: Colors.textPrimary,
     fontSize: 22,
-    fontWeight: 'normal',
-    textAlign: 'center',
+    fontWeight: '600',
+    textAlign: 'left',
     paddingVertical: 4,
   },
   bottomContainer: {

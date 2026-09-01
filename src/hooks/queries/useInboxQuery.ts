@@ -80,23 +80,23 @@ export function useSaveRecentRoomMutation(deviceId: string) {
       return { code, name: resolvedName, updatedRooms: updated };
     },
     onSuccess: (data) => {
-      // Optimistically update query cache
+      // Optimistically update query cache: always place newly created / joined room at the very top!
       queryClient.setQueryData<ActiveRoomDetail[]>(
         inboxKeys.byDevice(deviceId),
         (old = []) => {
-          const exists = old.find((r) => r.code === data.code);
-          if (exists) {
-            return old.map((r) =>
-              r.code === data.code ? { ...r, name: data.name || r.name } : r
-            );
-          }
-          const newRoom: ActiveRoomDetail = {
-            code: data.code,
-            name: data.name || data.code,
-            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-            hasUnread: false,
-          };
-          return [newRoom, ...old];
+          const exists = old.find((r) => r.code.toLowerCase() === data.code.toLowerCase());
+          const remaining = old.filter((r) => r.code.toLowerCase() !== data.code.toLowerCase());
+
+          const targetRoom: ActiveRoomDetail = exists
+            ? { ...exists, name: data.name || exists.name }
+            : {
+                code: data.code,
+                name: data.name || data.code,
+                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                hasUnread: false,
+              };
+
+          return [targetRoom, ...remaining];
         }
       );
     },

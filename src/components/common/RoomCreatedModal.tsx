@@ -66,6 +66,8 @@ export const RoomCreatedModal: React.FC<RoomCreatedModalProps> = ({
               setCustomRoomNameInput(text);
               onSaveName(text);
             }}
+            selectionColor="#FFFFFF"
+            cursorColor="#FFFFFF"
             onSubmitEditing={() => onSaveName()}
             onBlur={() => onSaveName()}
             returnKeyType="done"

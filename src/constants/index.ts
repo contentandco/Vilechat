@@ -1,13 +1,13 @@
 import { CardTheme, StickerItem } from '../types';
 
 export const PROMPTS: string[] = [
-  "send me anonymous messages!",
-  "ask me anything... 🤫",
-  "tell me a secret you never told anyone 🔥",
+  "what's a secret you've never told me? 🤫",
+  "be honest: what vibe do I give off? ⚡",
   "what was your first impression of me? 👀",
-  "drop a confession or truth 💖",
-  "roast me anonymously 😂",
-  "tell me who you have a crush on 💘",
+  "drop a hot take or unpopular opinion 🔥",
+  "tell me something only we know ✨",
+  "ask me literally anything... 💬",
+  "send a secret message to my inbox 🔒",
 ];
 
 export const CARD_THEMES: CardTheme[] = [
@@ -18,7 +18,7 @@ export const CARD_THEMES: CardTheme[] = [
   { id: 'vail-obsidian', bg: '#1C2430', cardBorder: '#293545', accent: '#00B4D8' },
 ];
 
-export const STICKERS: StickerItem[] = [
+export const GIFS: StickerItem[] = [
   { id: 'slay', url: 'https://media.giphy.com/media/l41YmQjOz9qgIZw4g/giphy.gif', label: '💅 Slay' },
   { id: 'mindblown', url: 'https://media.giphy.com/media/26ufdipOdBgTE77R6/giphy.gif', label: '🤯 Mind Blown' },
   { id: 'cry', url: 'https://media.giphy.com/media/2WxWfiav9b0UrXMh4S/giphy.gif', label: '😭 Cry' },
@@ -29,4 +29,11 @@ export const STICKERS: StickerItem[] = [
   { id: 'dance', url: 'https://media.giphy.com/media/tsX3YMWYzDPjAARfJ1/giphy.gif', label: '🕺 Dance' },
   { id: 'skull', url: 'https://media.giphy.com/media/hS9M9vPJ9pZUk/giphy.gif', label: '💀 Dead' },
   { id: 'heart', url: 'https://media.giphy.com/media/l0EwYcQ1M4L95OTqE/giphy.gif', label: '❤️ Heart' },
+  { id: 'hype', url: 'https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif', label: '🔥 Hype' },
+  { id: 'laugh', url: 'https://media.giphy.com/media/3oEjHAUOqG3lSS0f1C/giphy.gif', label: '🤣 LOL' },
+  { id: 'cheers', url: 'https://media.giphy.com/media/Zw3oBUuIg231S/giphy.gif', label: '🥂 Cheers' },
+  { id: 'confused', url: 'https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif', label: '❓ Huh' },
+  { id: 'bye', url: 'https://media.giphy.com/media/3o6Zt8qDiPE2d3kayI/giphy.gif', label: '👋 Bye' },
 ];
+
+export const STICKERS = GIFS;

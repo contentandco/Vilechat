@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   ArrowLeft01Icon,
@@ -183,18 +184,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     displayName: code === effectiveWhisperCode && (!name || name === code) ? 'Active Whisper Link' : name,
   }));
 
+  const insets = useSafeAreaInsets();
+  const topPadding = Math.max(insets.top + 8, Platform.OS === 'ios' ? 54 : 48);
+
   const isCurrentWhisperPaused = pausedCodes.includes(effectiveWhisperCode);
 
   return (
     <Modal
       animationType="slide"
       transparent={false}
+      statusBarTranslucent={true}
       visible={visible}
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        {/* Top Header */}
-        <View style={styles.header}>
+        {/* Top Header with Safe Area Inset */}
+        <View style={[styles.header, { paddingTop: topPadding }]}>
           <TouchableOpacity style={styles.backBtn} onPress={onClose} activeOpacity={0.7}>
             <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
@@ -542,8 +547,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'ios' ? 54 : 20,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   backBtn: {
     padding: 8,
@@ -579,8 +582,6 @@ const styles = StyleSheet.create({
   cardGroup: {
     backgroundColor: Colors.cardBackground,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
     overflow: 'hidden',
   },
   rowItem: {
@@ -621,7 +622,7 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 1,
-    backgroundColor: Colors.border,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     marginLeft: 66,
   },
   pauseOverlay: {
@@ -655,8 +656,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   pauseDoneText: {
     color: Colors.textPrimary,
@@ -683,8 +682,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 14,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   pauseCardInfo: {
     flex: 1,
@@ -805,8 +802,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'ios' ? 54 : 20,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   notifHeaderTitle: {
     fontSize: 20,
@@ -826,8 +821,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   notifRow: {
     flexDirection: 'row',
@@ -867,7 +860,7 @@ const styles = StyleSheet.create({
   },
   notifSeparator: {
     height: 1,
-    backgroundColor: Colors.border,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     marginLeft: 52,
   },
 });

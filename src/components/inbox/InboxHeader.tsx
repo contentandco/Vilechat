@@ -54,7 +54,7 @@ export const InboxHeader: React.FC<InboxHeaderProps> = ({
             style={styles.clearHistoryButton} 
             onPress={() => setIsInboxEditMode(true)}
           >
-            <HugeiconsIcon icon={Delete02Icon} size={14} color={Colors.danger} />
+            <HugeiconsIcon icon={Delete02Icon} size={14} color={Colors.textWhite} />
             <Text style={styles.clearHistoryText}>Clear</Text>
           </TouchableOpacity>
         )
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   clearHistoryText: {
-    color: Colors.danger,
+    color: Colors.textWhite,
     fontSize: 12,
     fontWeight: '600',
   },

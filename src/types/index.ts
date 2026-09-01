@@ -18,6 +18,7 @@ export interface RecentRoom {
 }
 
 export interface ActiveRoomDetail {
+  id?: string;
   code: string;
   expires_at: string;
   name?: string;

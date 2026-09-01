@@ -30,6 +30,7 @@ import { MessageItem } from '../../types';
 import { Colors } from '../../constants/theme';
 import { copyRoomCodeToClipboard, copyRoomLinkToClipboard, shareRoomLink } from '../../services/share';
 import { setRoomPausedInDB } from '../../api/rooms';
+import { RoomPresenceUser } from '../../api/messages';
 
 interface RoomInfoModalProps {
   visible: boolean;
@@ -38,6 +39,7 @@ interface RoomInfoModalProps {
   activeRoomCode: string;
   timeRemaining: string;
   participantsCount: number;
+  onlineUsers?: RoomPresenceUser[];
   userNickname: string;
   userId: string;
   messages: MessageItem[];
@@ -60,6 +62,7 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
   activeRoomCode,
   timeRemaining,
   participantsCount,
+  onlineUsers = [],
   userNickname,
   userId,
   messages,
@@ -175,8 +178,17 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
     }
   }
 
+  const isParticipantOnline = (senderId: string, senderName: string) => {
+    if (!onlineUsers || onlineUsers.length === 0) return false;
+    const cleanName = (senderName || '').replace(/^@+/, '').trim().toLowerCase();
+    return onlineUsers.some(
+      (u) =>
+        u.userId === senderId ||
+        (cleanName && (u.nickname || '').replace(/^@+/, '').trim().toLowerCase() === cleanName)
+    );
+  };
+
   const otherParticipants = Array.from(otherParticipantsMap.values());
-  const totalHumanParticipants = otherParticipants.length + 1;
 
   return (
     <Modal
@@ -216,6 +228,8 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
                       placeholderTextColor={Colors.textMuted}
                       value={roomNameInputText}
                       onChangeText={setRoomNameInputText}
+                      selectionColor="#FFFFFF"
+                      cursorColor="#FFFFFF"
                       maxLength={32}
                       autoFocus={true}
                       returnKeyType="done"
@@ -266,12 +280,12 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
                   onPress={() => copyRoomCodeToClipboard(activeRoomCode)}
                   activeOpacity={0.75}
                 >
-                  <HugeiconsIcon icon={Copy01Icon} size={18} color={Colors.textPrimary} />
+                  <HugeiconsIcon icon={Copy01Icon} size={16} color={Colors.textPrimary} />
                 </TouchableOpacity>
               </View>
 
               {/* Share Link Row */}
-              <Text style={[styles.fieldLabel, { marginTop: 14 }]}>JOIN LINK</Text>
+              <Text style={[styles.fieldLabel, { marginTop: 12 }]}>INVITE LINK</Text>
               <View style={styles.linkRow}>
                 <Text style={styles.linkText} numberOfLines={1}>
                   https://vailchat.com/join?code={activeRoomCode}
@@ -281,7 +295,7 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
                   onPress={() => copyRoomLinkToClipboard(activeRoomCode)}
                   activeOpacity={0.75}
                 >
-                  <HugeiconsIcon icon={Copy01Icon} size={18} color={Colors.textPrimary} />
+                  <HugeiconsIcon icon={Copy01Icon} size={16} color={Colors.textPrimary} />
                 </TouchableOpacity>
               </View>
 
@@ -334,40 +348,51 @@ export const RoomInfoModal: React.FC<RoomInfoModalProps> = ({
             <View style={styles.modalCard}>
               <View style={styles.modalCardHeader}>
                 <HugeiconsIcon icon={UserGroupIcon} size={18} color={Colors.textPrimary} />
-                <Text style={styles.modalCardTitle}>Active Participants ({totalHumanParticipants})</Text>
+                <Text style={styles.modalCardTitle}>Active Participants ({participantsCount || 1})</Text>
               </View>
               <View style={styles.participantsList}>
                 {/* You */}
                 <View style={styles.participantItem}>
                   <View style={styles.participantLeft}>
-                    <View style={styles.participantDotMe} />
-                    <Text style={styles.participantName}>
-                      {userNickname} <Text style={styles.participantRole}>({isCreator ? 'Creator / You' : 'You'})</Text>
-                    </Text>
+                    <View style={[styles.participantDot, styles.dotActive]} />
+                    <View>
+                      <Text style={styles.participantName}>
+                        {userNickname} <Text style={styles.participantRole}>({isCreator ? 'Creator / You' : 'You'})</Text>
+                      </Text>
+                      <Text style={styles.participantStatusText}>Active now</Text>
+                    </View>
                   </View>
                 </View>
 
                 {/* Other Room Members */}
-                {otherParticipants.map((msg) => (
-                  <View key={msg.id} style={styles.participantItem}>
-                    <View style={styles.participantLeft}>
-                      <View style={styles.participantDotOther} />
-                      <Text style={styles.participantName}>{msg.sender_name}</Text>
-                    </View>
+                {otherParticipants.map((msg) => {
+                  const isOnline = isParticipantOnline(msg.sender_id, msg.sender_name);
+                  return (
+                    <View key={msg.id} style={styles.participantItem}>
+                      <View style={styles.participantLeft}>
+                        <View style={[styles.participantDot, isOnline ? styles.dotActive : styles.dotInactive]} />
+                        <View>
+                          <Text style={styles.participantName}>{msg.sender_name}</Text>
+                          <Text style={styles.participantStatusText}>
+                            {isOnline ? 'Active now' : 'Inactive'}
+                          </Text>
+                        </View>
+                      </View>
 
-                    {/* Creator Kick Button */}
-                    {isCreator && (
-                      <TouchableOpacity
-                        style={styles.kickBtn}
-                        onPress={() => handleKick(msg.sender_id, msg.sender_name)}
-                        activeOpacity={0.75}
-                      >
-                        <HugeiconsIcon icon={UserRemove01Icon} size={13} color={Colors.danger} />
-                        <Text style={styles.kickBtnText}>Kick</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ))}
+                      {/* Creator Kick Button */}
+                      {isCreator && (
+                        <TouchableOpacity
+                          style={styles.kickBtn}
+                          onPress={() => handleKick(msg.sender_id, msg.sender_name)}
+                          activeOpacity={0.75}
+                        >
+                          <HugeiconsIcon icon={UserRemove01Icon} size={13} color={Colors.danger} />
+                          <Text style={styles.kickBtnText}>Kick</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             </View>
 
@@ -689,22 +714,27 @@ const styles = StyleSheet.create({
     gap: 10,
     flex: 1,
   },
-  participantDotMe: {
+  participantDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  dotActive: {
     backgroundColor: '#22C55E',
   },
-  participantDotOther: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#22C55E',
+  dotInactive: {
+    backgroundColor: '#484F58',
   },
   participantName: {
     color: Colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
+  },
+  participantStatusText: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
   },
   participantRole: {
     color: Colors.textMuted,

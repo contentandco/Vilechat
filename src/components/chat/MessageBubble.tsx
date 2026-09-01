@@ -7,6 +7,7 @@ import { VoiceWaveform } from './VoiceWaveform';
 interface MessageBubbleProps {
   item: MessageItem;
   isMe: boolean;
+  userNickname?: string;
   isFirstInGroup: boolean;
   isLastInGroup: boolean;
   isPlayingAudio: boolean;
@@ -16,6 +17,7 @@ interface MessageBubbleProps {
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   item,
   isMe,
+  userNickname,
   isFirstInGroup,
   isLastInGroup,
   isPlayingAudio,
@@ -30,12 +32,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
-  // Render centered sleek pill for system announcements (e.g. "Neon Fox joined the room 👋")
+  // Render centered sleek pill for system announcements (e.g. "@user joined" or "You joined")
   if (item.is_system) {
+    let displayContent = item.content;
+    if (userNickname) {
+      const myCleanName = userNickname.replace(/^@+/, '').trim().toLowerCase();
+      const contentLower = (item.content || '').toLowerCase();
+      if (
+        myCleanName &&
+        (contentLower === `@${myCleanName} joined` ||
+          contentLower === `${myCleanName} joined` ||
+          contentLower.startsWith(`@${myCleanName} `) ||
+          contentLower.startsWith(`${myCleanName} `))
+      ) {
+        displayContent = 'You joined';
+      }
+    }
+
     return (
       <View style={styles.systemMessageRow}>
         <View style={styles.systemPill}>
-          <Text style={styles.systemText}>{item.content}</Text>
+          <Text style={styles.systemText}>{displayContent}</Text>
         </View>
       </View>
     );
@@ -116,17 +133,15 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   systemPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
     paddingHorizontal: 14,
     paddingVertical: 5,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   systemText: {
-    color: Colors.textMuted,
+    color: '#8B949E',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     textAlign: 'center',
   },
   messageRow: {
@@ -157,8 +172,6 @@ const styles = StyleSheet.create({
   msgBubbleLeft: {
     backgroundColor: Colors.cardBackground,
     borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   msgBubbleRight: {
     backgroundColor: Colors.primary,
@@ -168,8 +181,6 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 14,
     backgroundColor: Colors.cardBackground,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   msgBubbleVoice: {
     paddingHorizontal: 12,

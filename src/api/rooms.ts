@@ -273,6 +273,7 @@ export async function verifyActiveRoomsFromDB(roomsList: RecentRoom[]): Promise<
       const hasUnread = latestMsgTime > 0 && latestMsgTime > lastRead;
 
       return {
+        id: r.id,
         code: r.code,
         expires_at: r.expires_at,
         name: roomName || r.code,

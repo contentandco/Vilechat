@@ -7,7 +7,6 @@ import { Colors } from '../constants/theme';
 import { ChatHeader } from '../components/chat/ChatHeader';
 import { MessageList } from '../components/chat/MessageList';
 import { ChatInputBar } from '../components/chat/ChatInputBar';
-import { StickersPanel } from '../components/chat/StickersPanel';
 import { RoomInfoModal } from '../components/common/RoomInfoModal';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
@@ -22,14 +21,16 @@ import { useRenameRoomMutation } from '../hooks/queries/useRoomQuery';
 import { inboxKeys } from '../hooks/queries/useInboxQuery';
 import { setRoomLastRead } from '../services/storage';
 import {
+  sendEncryptedMessage,
+  sendSystemJoinMessage,
   subscribeToRoomMessages,
   generateClientUUID,
-  sendSystemJoinMessage,
+  RoomPresenceUser,
 } from '../api/messages';
 import {
   subscribeToRoomMeta,
-  broadcastKickUser,
   subscribeToRoomActions,
+  broadcastKickUser,
   deleteRoomPermanently,
 } from '../api/rooms';
 
@@ -69,7 +70,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   const queryClient = useQueryClient();
   const [inputText, setInputText] = useState<string>('');
   const [roomNameInputText, setRoomNameInputText] = useState<string>('');
-  const [showStickers, setShowStickers] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [hasEarlierMessages, setHasEarlierMessages] = useState<boolean>(false);
 
@@ -80,31 +80,27 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   const {
     data: messages = [],
     isLoading: isLoadingMessages,
-    isRefetching,
     refetch: refetchMessages,
   } = useRoomMessages(roomId, roomCode);
   const { mutateAsync: sendMessageMutation } = useSendMessageMutation();
   const { mutateAsync: loadEarlierMutation, isPending: loadingEarlier } = useLoadEarlierMessagesMutation();
   const { mutateAsync: renameRoomMutation } = useRenameRoomMutation(deviceId);
 
+  const [isPullRefreshing, setIsPullRefreshing] = useState<boolean>(false);
+
   const handleRefresh = async () => {
-    await refetchMessages();
+    try {
+      setIsPullRefreshing(true);
+      await refetchMessages();
+    } finally {
+      setIsPullRefreshing(false);
+    }
   };
 
-  // Compute unique human participants
-  const myCleanName = (userNickname || '').replace(/^@+/, '').trim().toLowerCase();
-  const uniqueParticipants = new Set<string>();
-  for (const m of messages) {
-    if (!m.is_system && m.sender_id !== '__system__' && m.sender_name !== 'System') {
-      const cleanSender = (m.sender_name || m.sender_id).replace(/^@+/, '').trim().toLowerCase();
-      if (cleanSender && cleanSender !== myCleanName && m.sender_id !== userId) {
-        uniqueParticipants.add(cleanSender);
-      }
-    }
-  }
-  const participantsCount = uniqueParticipants.size + 1;
+  const [onlineUsers, setOnlineUsers] = useState<RoomPresenceUser[]>([]);
+  const participantsCount = Math.max(1, onlineUsers.length);
 
-  // Scroll to bottom helper
+  // Scroll to bottom (latest message) helper
   const scrollToBottom = (delay: number = 50) => {
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -129,13 +125,10 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     }
   };
 
-  // Scroll to bottom and update hasEarlierMessages dynamically
+  // Update hasEarlierMessages dynamically
   useEffect(() => {
     markActiveRoomRead();
-    if (messages.length > 0) {
-      scrollToBottom(100);
-    }
-    setHasEarlierMessages(messages.length >= 20);
+    setHasEarlierMessages(messages.length >= 50);
   }, [roomId, messages.length]);
 
   // System Join Announcement & Real-Time subscriptions
@@ -154,17 +147,26 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     };
     checkAnnouncement();
 
-    // Subscribe to incoming messages and directly update TanStack Query cache (Zero duplicate DB queries)
-    const unsubscribeMessages = subscribeToRoomMessages(roomId, roomCode, (newMsg) => {
-      markActiveRoomRead();
-      queryClient.setQueryData<MessageItem[]>(messageKeys.room(roomId), (old = []) => {
-        if (old.some((m) => m.id === newMsg.id)) {
-          return old;
-        }
-        return [...old, newMsg];
-      });
-      scrollToBottom(100);
-    });
+    // Subscribe to incoming messages and live Presence
+    const unsubscribeMessages = subscribeToRoomMessages(
+      roomId,
+      roomCode,
+      (newMsg) => {
+        markActiveRoomRead();
+        queryClient.setQueryData<MessageItem[]>(messageKeys.room(roomId), (old = []) => {
+          if (old.some((m) => m.id === newMsg.id)) {
+            return old;
+          }
+          return [...old, newMsg];
+        });
+        scrollToBottom(100);
+      },
+      userId,
+      userNickname,
+      (presenceUsers) => {
+        setOnlineUsers(presenceUsers);
+      }
+    );
 
     // Subscribe to room meta updates
     const unsubscribeMeta = subscribeToRoomMeta(roomId, roomCode, (newName) => {
@@ -213,7 +215,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         roomCode,
         beforeCreatedAt: oldestCreatedAt,
       });
-      if (res.earlier.length < 20) {
+      if (res.earlier.length < 50) {
         setHasEarlierMessages(false);
       }
     } catch (e) {
@@ -262,26 +264,6 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
       Alert.alert('Error', 'Failed to send image.');
     }
   });
-
-  // Send sticker
-  const handleSendSticker = async (stickerUrl: string) => {
-    setShowStickers(false);
-    const msgId = generateClientUUID();
-    scrollToBottom();
-    try {
-      await sendMessageMutation({
-        id: msgId,
-        roomId,
-        roomCode,
-        senderId: userId,
-        senderName: userNickname,
-        rawContent: stickerUrl,
-        isSticker: true,
-      });
-    } catch (err) {
-      Alert.alert('Error', 'Failed to send sticker.');
-    }
-  };
 
   // Record and send voice note
   const { isRecording, isProcessing: recordingProcessing, startRecording, stopRecording } = useAudioRecorder(
@@ -353,7 +335,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
 
   return (
     <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
       style={styles.chatWrapper}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
@@ -369,19 +351,18 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         }}
       />
 
-      {/* Messages Stream with 20-Message Pagination & Pull to Refresh */}
+      {/* Messages Stream with 20-Message Auto-Pagination */}
       <MessageList
         scrollViewRef={scrollViewRef}
         messages={messages}
         userId={userId}
+        userNickname={userNickname}
+        roomName={roomName}
         playingAudioId={playingAudioId}
         onPlayAudio={playAudio}
-        onScrollBeginDrag={() => setShowStickers(false)}
         hasEarlierMessages={hasEarlierMessages}
         loadingEarlier={loadingEarlier}
         onLoadEarlier={handleLoadEarlier}
-        refreshing={isRefetching}
-        onRefresh={handleRefresh}
       />
 
       {/* Input Bar */}
@@ -393,15 +374,8 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         isRecording={isRecording}
         onStartRecording={startRecording}
         onStopRecording={stopRecording}
-        showStickers={showStickers}
-        setShowStickers={setShowStickers}
         loading={loading || pickingImage || recordingProcessing}
       />
-
-      {/* Stickers Panel */}
-      {showStickers && (
-        <StickersPanel onSelectSticker={handleSendSticker} />
-      )}
 
       {/* Room Details Modal */}
       <RoomInfoModal
@@ -411,6 +385,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         activeRoomCode={roomCode}
         timeRemaining={timeRemaining}
         participantsCount={participantsCount}
+        onlineUsers={onlineUsers}
         userNickname={userNickname}
         userId={userId}
         messages={messages}

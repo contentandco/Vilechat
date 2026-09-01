@@ -1,11 +1,11 @@
-import React from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Platform, Keyboard } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   Camera01Icon,
   Mic01Icon,
   Image01Icon,
-  SmileIcon,
 } from '@hugeicons/core-free-icons';
 import { Colors } from '../../constants/theme';
 
@@ -17,8 +17,6 @@ interface ChatInputBarProps {
   isRecording: boolean;
   onStartRecording: () => void;
   onStopRecording: () => void;
-  showStickers: boolean;
-  setShowStickers: (show: boolean) => void;
   loading: boolean;
 }
 
@@ -30,14 +28,35 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   isRecording,
   onStartRecording,
   onStopRecording,
-  showStickers,
-  setShowStickers,
   loading,
 }) => {
+  const insets = useSafeAreaInsets();
+  const inputRef = useRef<TextInput>(null);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState<boolean>(false);
   const hasText = inputText.trim().length > 0;
 
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardOpen(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardOpen(false)
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const bottomPadding = isKeyboardOpen
+    ? 8
+    : Math.max(insets.bottom + 6, Platform.OS === 'android' ? 22 : 12);
+
   return (
-    <View style={styles.instagramInputBar}>
+    <View style={[styles.instagramInputBar, { paddingBottom: bottomPadding }]}>
       {/* Camera Button */}
       <TouchableOpacity 
         style={styles.instagramCamBtn} 
@@ -50,66 +69,60 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
       
       {/* Message Input Box */}
       <View style={styles.instagramInputBox}>
+        {/* Text Input */}
         <TextInput
+          ref={inputRef}
           style={styles.instagramTextInput}
           placeholder="Message..."
           placeholderTextColor={Colors.textMuted}
           value={inputText}
           onChangeText={setInputText}
+          selectionColor="#FFFFFF"
+          cursorColor="#FFFFFF"
           multiline
           maxLength={1000}
-          onFocus={() => setShowStickers(false)}
         />
 
-        {/* Media Controls when no text is typed */}
-        {!hasText && (
-          <View style={styles.instagramRightIconsRow}>
-            {/* Microphone Icon for Voice Notes */}
-            <TouchableOpacity 
-              style={styles.innerIconBtn} 
-              onPressIn={onStartRecording}
-              onPressOut={onStopRecording}
-            >
-              <HugeiconsIcon 
-                icon={Mic01Icon} 
-                size={20} 
-                color={isRecording ? Colors.primary : Colors.textPrimary} 
-              />
-            </TouchableOpacity>
+        {/* Right side controls */}
+        <View style={styles.instagramRightIconsRow}>
+          {!hasText ? (
+            <>
+              {/* Photo/Gallery Icon */}
+              <TouchableOpacity 
+                style={styles.innerIconBtn} 
+                onPress={() => onSendImage(false)}
+                disabled={loading}
+                activeOpacity={0.7}
+              >
+                <HugeiconsIcon icon={Image01Icon} size={20} color={Colors.textPrimary} />
+              </TouchableOpacity>
 
-            {/* Photo/Gallery Icon */}
+              {/* Microphone Icon for Voice Notes */}
+              <TouchableOpacity 
+                style={styles.innerIconBtn} 
+                onPressIn={onStartRecording}
+                onPressOut={onStopRecording}
+                activeOpacity={0.7}
+              >
+                <HugeiconsIcon 
+                  icon={Mic01Icon} 
+                  size={20} 
+                  color={isRecording ? Colors.primary : Colors.textPrimary} 
+                />
+              </TouchableOpacity>
+            </>
+          ) : (
+            /* Send Button */
             <TouchableOpacity 
-              style={styles.innerIconBtn} 
-              onPress={() => onSendImage(false)}
+              style={styles.instagramSendTextBtn} 
+              onPress={onSendMessage}
               disabled={loading}
+              activeOpacity={0.8}
             >
-              <HugeiconsIcon icon={Image01Icon} size={20} color={Colors.textPrimary} />
+              <Text style={styles.instagramSendText}>Send</Text>
             </TouchableOpacity>
-
-            {/* Sticker/Smile Icon */}
-            <TouchableOpacity 
-              style={styles.innerIconBtn} 
-              onPress={() => setShowStickers(!showStickers)}
-            >
-              <HugeiconsIcon 
-                icon={SmileIcon} 
-                size={20} 
-                color={showStickers ? Colors.primary : Colors.textPrimary} 
-              />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Send Button when text is present */}
-        {hasText && (
-          <TouchableOpacity 
-            style={styles.instagramSendTextBtn} 
-            onPress={onSendMessage}
-            disabled={loading}
-          >
-            <Text style={styles.instagramSendText}>Send</Text>
-          </TouchableOpacity>
-        )}
+          )}
+        </View>
       </View>
     </View>
   );
@@ -120,8 +133,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.background,
-    borderTopWidth: 1,
-    borderTopColor: Colors.divider,
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 8,
@@ -131,8 +142,6 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    borderWidth: 1,
-    borderColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -142,10 +151,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.cardBackground,
     borderRadius: 24,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   instagramTextInput: {
     flex: 1,
@@ -153,18 +160,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     paddingTop: 8,
     paddingBottom: 8,
+    paddingHorizontal: 6,
     maxHeight: 100,
   },
   instagramRightIconsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   innerIconBtn: {
     padding: 4,
   },
   instagramSendTextBtn: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
   },
   instagramSendText: {

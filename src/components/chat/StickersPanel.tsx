@@ -1,32 +1,41 @@
 import React from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { STICKERS } from '../../constants';
+import { GIFS } from '../../constants';
 import { Colors } from '../../constants/theme';
 
 interface StickersPanelProps {
   onSelectSticker: (url: string) => void;
+  onSelectEmoji?: (emoji: string) => void;
 }
 
-export const StickersPanel: React.FC<StickersPanelProps> = ({ onSelectSticker }) => {
+export const StickersPanel: React.FC<StickersPanelProps> = ({ 
+  onSelectSticker, 
+}) => {
   return (
     <View style={styles.stickersPanel}>
-      <View style={styles.stickersHeader}>
-        <Text style={styles.stickersTitle}>TAP TO SEND INSTANT STICKER</Text>
+      {/* Top Header Row */}
+      <View style={styles.headerRow}>
+        <View style={styles.gifBadge}>
+          <Text style={styles.gifBadgeText}>GIF</Text>
+        </View>
+        <Text style={styles.headerTitle}>TRENDING GIFS</Text>
       </View>
+
+      {/* GIFs Scroll View */}
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false} 
-        contentContainerStyle={styles.stickersScroll}
+        contentContainerStyle={styles.gifsScroll}
       >
-        {STICKERS.map((sticker) => (
+        {GIFS.map((gif) => (
           <TouchableOpacity 
-            key={sticker.id}
-            style={styles.stickerCard}
-            onPress={() => onSelectSticker(sticker.url)}
+            key={gif.id}
+            style={styles.gifCard}
+            onPress={() => onSelectSticker(gif.url)}
             activeOpacity={0.8}
           >
-            <Image source={{ uri: sticker.url }} style={styles.stickerPreview} />
-            <Text style={styles.stickerLabel}>{sticker.label}</Text>
+            <Image source={{ uri: gif.url }} style={styles.gifPreview} />
+            <Text style={styles.gifLabel}>{gif.label}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -36,43 +45,58 @@ export const StickersPanel: React.FC<StickersPanelProps> = ({ onSelectSticker })
 
 const styles = StyleSheet.create({
   stickersPanel: {
-    backgroundColor: Colors.cardBackground,
+    backgroundColor: Colors.background,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingVertical: 16,
+    borderTopColor: Colors.divider,
+    paddingTop: 12,
     paddingHorizontal: 16,
-    height: 190,
+    height: 180,
   },
-  stickersHeader: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 12,
   },
-  stickersTitle: {
+  gifBadge: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  gifBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  headerTitle: {
     color: Colors.textSecondary,
     fontSize: 11,
-    fontWeight: 'bold',
-    letterSpacing: 1.5,
+    fontWeight: '700',
+    letterSpacing: 1.2,
   },
-  stickersScroll: {
-    gap: 14,
+  gifsScroll: {
+    gap: 12,
     alignItems: 'center',
+    paddingBottom: 16,
   },
-  stickerCard: {
+  gifCard: {
     alignItems: 'center',
-    backgroundColor: Colors.surfaceInput,
-    borderWidth: 1,
-    borderColor: Colors.borderInput,
+    backgroundColor: Colors.cardBackground,
     padding: 8,
     borderRadius: 16,
-    width: 90,
+    width: 96,
   },
-  stickerPreview: {
-    width: 60,
-    height: 60,
+  gifPreview: {
+    width: 76,
+    height: 76,
+    borderRadius: 12,
     marginBottom: 6,
   },
-  stickerLabel: {
+  gifLabel: {
     color: Colors.textSecondary,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

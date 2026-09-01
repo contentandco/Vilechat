@@ -239,6 +239,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       deviceId: '',
       userNickname: '',
       userAvatar: '',
+      isIdentityLoaded: false,
       currentScreen: 'welcome',
       activeTab: 'whisper',
       activeRoomId: '',

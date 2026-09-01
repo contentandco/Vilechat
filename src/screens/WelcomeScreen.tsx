@@ -7,9 +7,9 @@ import {
   Platform,
   Alert,
   Dimensions,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Text as SvgText } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
@@ -41,37 +41,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) =>
       {/* Center Logo Area */}
       <View style={styles.centerContainer}>
         <View style={styles.logoWrapper}>
-          <Svg height="140" width={Math.min(width - 32, 340)} viewBox="0 0 340 140">
-            {/* Outer Thick Black Shadow & Border */}
-            <SvgText
-              x="170"
-              y="100"
-              fill="#000000"
-              stroke="#000000"
-              strokeWidth="24"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              fontSize="86"
-              fontWeight="900"
-              textAnchor="middle"
-              fontFamily={Platform.OS === 'ios' ? 'Arial-Black' : 'sans-serif-black'}
-            >
-              VAIL
-            </SvgText>
-
-            {/* Inner Crisp White Sticker Face */}
-            <SvgText
-              x="170"
-              y="100"
-              fill="#FFFFFF"
-              fontSize="86"
-              fontWeight="900"
-              textAnchor="middle"
-              fontFamily={Platform.OS === 'ios' ? 'Arial-Black' : 'sans-serif-black'}
-            >
-              VAIL
-            </SvgText>
-          </Svg>
+          <Image
+            source={require('../../assets/logo-transparent.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
       </View>
 
@@ -119,6 +93,10 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-4deg' }],
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logoImage: {
+    width: Math.min(width - 48, 300),
+    height: 160,
   },
   bottomContainer: {
     width: '100%',

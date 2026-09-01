@@ -120,11 +120,13 @@ export function generateAnonymousName(): string {
 }
 
 /**
- * Generates a human-friendly unique room code (e.g. glitch-axolotl-42)
+ * Generates a sleek, unique alphanumeric room code (e.g. VL-8492, VL-7X9K)
  */
 export function generateRoomCode(): string {
-  const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)].toLowerCase();
-  const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)].toLowerCase();
-  const randomNum = Math.floor(10 + Math.random() * 90);
-  return `${adj}-${animal}-${randomNum}`;
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let randomPart = '';
+  for (let i = 0; i < 4; i++) {
+    randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `VL-${randomPart}`;
 }

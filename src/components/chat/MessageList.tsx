@@ -1,118 +1,139 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import { LockKeyIcon } from '@hugeicons/core-free-icons';
 import { MessageItem } from '../../types';
 import { Colors } from '../../constants/theme';
 import { MessageBubble } from './MessageBubble';
 
 interface MessageListProps {
-  scrollViewRef: React.RefObject<ScrollView | null>;
+  scrollViewRef?: React.RefObject<ScrollView | null>;
   messages: MessageItem[];
   userId: string;
+  userNickname?: string;
+  roomName?: string;
   playingAudioId: string | null;
   onPlayAudio: (id: string, content: string) => void;
   onScrollBeginDrag?: () => void;
   hasEarlierMessages?: boolean;
   loadingEarlier?: boolean;
   onLoadEarlier?: () => void;
-  refreshing?: boolean;
-  onRefresh?: () => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
   scrollViewRef,
   messages,
   userId,
+  userNickname,
   playingAudioId,
   onPlayAudio,
   onScrollBeginDrag,
   hasEarlierMessages = false,
   loadingEarlier = false,
   onLoadEarlier,
-  refreshing = false,
-  onRefresh,
 }) => {
+  const isInitialMount = useRef(true);
+  const prevLatestId = useRef<string | null>(null);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset } = event.nativeEvent;
+    // Prefetch earlier messages ahead of time when scrolling within 300px of top
+    if (contentOffset.y <= 300 && hasEarlierMessages && !loadingEarlier && onLoadEarlier) {
+      onLoadEarlier();
+    }
+  };
+
+  const handleContentSizeChange = () => {
+    const latestMsg = messages[messages.length - 1];
+    const latestId = latestMsg?.id || null;
+
+    if (isInitialMount.current && messages.length > 0) {
+      // 0ms Instant positioning at the bottom on initial load
+      scrollViewRef?.current?.scrollToEnd({ animated: false });
+      isInitialMount.current = false;
+      prevLatestId.current = latestId;
+      return;
+    }
+
+    // ONLY scroll down if a NEW message was appended at the BOTTOM (latest message ID changed)
+    if (latestId && prevLatestId.current && latestId !== prevLatestId.current) {
+      scrollViewRef?.current?.scrollToEnd({ animated: true });
+    }
+
+    prevLatestId.current = latestId;
+  };
+
   return (
     <ScrollView
-      ref={scrollViewRef}
+      ref={scrollViewRef as any}
       style={styles.messagesList}
       contentContainerStyle={styles.messagesListContent}
+      onScroll={handleScroll}
+      scrollEventThrottle={32}
+      onContentSizeChange={handleContentSizeChange}
       onScrollBeginDrag={onScrollBeginDrag}
       keyboardShouldPersistTaps="handled"
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.primary}
-            colors={[Colors.primary]}
-            progressBackgroundColor={Colors.cardBackground}
-          />
-        ) : undefined
-      }
+      showsVerticalScrollIndicator={false}
     >
-      {/* Load earlier messages banner (Pagination 20) */}
-      {hasEarlierMessages && (
+      {/* Subtle indicator when fetching earlier messages */}
+      {hasEarlierMessages && loadingEarlier && (
         <View style={styles.paginationContainer}>
-          {loadingEarlier ? (
-            <ActivityIndicator size="small" color={Colors.primary} />
-          ) : (
-            <TouchableOpacity 
-              style={styles.loadEarlierBtn}
-              onPress={onLoadEarlier}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.loadEarlierText}>Load earlier messages</Text>
-            </TouchableOpacity>
-          )}
+          <ActivityIndicator size="small" color={Colors.primary} />
         </View>
       )}
 
-      {messages.length === 0 ? (
-        <View style={styles.emptyChatPlaceholder}>
-          <View style={styles.emptyIconCircle}>
-            <HugeiconsIcon 
-              icon={LockKeyIcon} 
-              size={32} 
-              color={Colors.primary} 
-            />
-          </View>
-          <Text style={styles.emptyTitle}>Encrypted Chat Initiated</Text>
-          <Text style={styles.emptyDesc}>
-            All messages, photos, and voice notes are end-to-end encrypted. Eavesdroppers and database servers only see random ciphertext.
+      {/* Top Encryption & Ephemeral Text (Naturally placed at top) */}
+      {!hasEarlierMessages && (
+        <View style={styles.topNoticeWrapper}>
+          <Text style={styles.topEncryptionText}>
+            Messages and media are end-to-end encrypted. No one outside this chat can read them. They disappear after 24 hours.
           </Text>
         </View>
-      ) : (
-        messages.map((item, index) => {
-          const isMe = item.sender_id === userId;
-          const prevMsg = index > 0 ? messages[index - 1] : null;
-          const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
-
-          const isFirstInGroup = !prevMsg || prevMsg.sender_id !== item.sender_id;
-          const isLastInGroup = !nextMsg || nextMsg.sender_id !== item.sender_id;
-
-          return (
-            <MessageBubble
-              key={item.id}
-              item={item}
-              isMe={isMe}
-              isFirstInGroup={isFirstInGroup}
-              isLastInGroup={isLastInGroup}
-              isPlayingAudio={playingAudioId === item.id}
-              onPlayAudio={onPlayAudio}
-            />
-          );
-        })
       )}
+
+      {/* Message Stream */}
+      {messages.map((item, index) => {
+        const isMe = item.sender_id === userId;
+        const prevMsg = index > 0 ? messages[index - 1] : null;
+        const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
+
+        const currentMsgTime = new Date(item.created_at).getTime();
+        const prevMsgTime = prevMsg ? new Date(prevMsg.created_at).getTime() : 0;
+        const nextMsgTime = nextMsg ? new Date(nextMsg.created_at).getTime() : 0;
+
+        const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+        // Is first in group if: different sender OR >5 minutes since previous message
+        const isFirstInGroup =
+          !prevMsg ||
+          prevMsg.sender_id !== item.sender_id ||
+          currentMsgTime - prevMsgTime >= FIVE_MINUTES_MS;
+
+        // Is last in group (shows timestamp) if: no next message OR different sender OR next message is >=5 minutes later
+        const isLastInGroup =
+          !nextMsg ||
+          nextMsg.sender_id !== item.sender_id ||
+          nextMsgTime - currentMsgTime >= FIVE_MINUTES_MS;
+
+        return (
+          <MessageBubble
+            key={item.id}
+            item={item}
+            isMe={isMe}
+            userNickname={userNickname}
+            isFirstInGroup={isFirstInGroup}
+            isLastInGroup={isLastInGroup}
+            isPlayingAudio={playingAudioId === item.id}
+            onPlayAudio={onPlayAudio}
+          />
+        );
+      })}
     </ScrollView>
   );
 };
@@ -124,54 +145,26 @@ const styles = StyleSheet.create({
   },
   messagesListContent: {
     paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
   paginationContainer: {
     alignItems: 'center',
     paddingVertical: 8,
     marginBottom: 10,
   },
-  loadEarlierBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+  topNoticeWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    marginBottom: 12,
   },
-  loadEarlierText: {
-    color: Colors.textSecondary,
+  topEncryptionText: {
+    color: '#D4A017',
     fontSize: 12,
-    fontWeight: '600',
-  },
-  emptyChatPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 80,
-    paddingHorizontal: 32,
-  },
-  emptyIconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: Colors.cardBackground,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    color: Colors.textPrimary,
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    lineHeight: 18,
+    fontWeight: '500',
     textAlign: 'center',
-  },
-  emptyDesc: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 20,
   },
 });

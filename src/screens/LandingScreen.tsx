@@ -28,7 +28,7 @@ interface LandingScreenProps {
   activeRoomCode: string;
   userNickname: string;
   userAvatar?: string;
-  onRandomizeNickname: () => string;
+  onChangeAvatar?: () => void;
   onCreateNewWhisperRoom: () => void;
   onUniversalShare: () => void;
   roomCreatedFeedback: boolean;
@@ -58,7 +58,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   activeRoomCode,
   userNickname,
   userAvatar,
-  onRandomizeNickname,
+  onChangeAvatar,
   onCreateNewWhisperRoom,
   onUniversalShare,
   roomCreatedFeedback,
@@ -79,10 +79,26 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
 }) => {
   const currentRoomCode = activeRoomCode || whisperRoomCode;
   const [inboxPage, setInboxPage] = useState<number>(1);
+  const [isManualRefreshing, setIsManualRefreshing] = useState<boolean>(false);
   const PAGE_SIZE = 10;
+
+  const handleManualRefresh = async () => {
+    if (!onRefreshInbox) return;
+    try {
+      setIsManualRefreshing(true);
+      await onRefreshInbox();
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  };
 
   const visibleRooms = verifiedActiveRooms.slice(0, inboxPage * PAGE_SIZE);
   const hasMoreRooms = verifiedActiveRooms.length > visibleRooms.length;
+
+  const isRoomActive =
+    roomCreatedFeedback ||
+    Boolean(activeRoomCode) ||
+    verifiedActiveRooms.some((r) => r.code.toLowerCase() === currentRoomCode.toLowerCase());
 
   return (
     <View style={styles.landingContainer}>
@@ -108,7 +124,9 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             promptIndex={promptIndex}
             setPromptIndex={setPromptIndex}
             roomCode={currentRoomCode}
-            onRandomizeNickname={onRandomizeNickname}
+            userNickname={userNickname}
+            onChangeAvatar={onChangeAvatar}
+            isCreated={isRoomActive}
           />
 
           <ShareDrawer
@@ -131,8 +149,8 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             refreshControl={
               onRefreshInbox ? (
                 <RefreshControl
-                  refreshing={isRefetchingInbox}
-                  onRefresh={onRefreshInbox}
+                  refreshing={isManualRefreshing}
+                  onRefresh={handleManualRefresh}
                   tintColor={Colors.primary}
                   colors={[Colors.primary]}
                   progressBackgroundColor={Colors.cardBackground}
@@ -150,11 +168,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 onDeleteSelected={onDeleteSelectedRooms}
               />
 
-              {checkingHistory && verifiedActiveRooms.length === 0 ? (
-                <View style={styles.centeredLoading}>
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                </View>
-              ) : verifiedActiveRooms.length === 0 ? (
+              {verifiedActiveRooms.length === 0 ? (
                 <EmptyInbox onGoToWhisper={() => setActiveTab('whisper')} />
               ) : (
                 <View style={styles.roomsList}>
@@ -189,9 +203,10 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 </View>
               )}
             </View>
-
-            <JoinByCodeButton onPress={onOpenJoinCodeModal} />
           </ScrollView>
+
+          {/* Fixed bottom button so it is always accessible and never buried under chats */}
+          <JoinByCodeButton onPress={onOpenJoinCodeModal} />
         </View>
       )}
     </View>
@@ -204,7 +219,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   whisperScroll: {
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingBottom: 40,
   },
   inboxWrapper: {
