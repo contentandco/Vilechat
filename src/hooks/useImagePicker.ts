@@ -22,7 +22,7 @@ export function useImagePicker(onImageSelected: (base64ImageData: string) => Pro
             base64: true,
           })
         : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             quality: 0.3,
             base64: true,

@@ -1,4 +1,5 @@
-import { Share, Clipboard, Platform, ToastAndroid, Alert } from 'react-native';
+import { Share, Platform, ToastAndroid, Alert } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 
 export function getShareUrl(roomCode: string): string {
   return `https://vilechat.app/join?code=${roomCode}`;
@@ -27,7 +28,7 @@ export async function shareRoomLink(roomCode: string): Promise<void> {
  */
 export function copyRoomLinkToClipboard(roomCode: string): void {
   const shareUrl = getShareUrl(roomCode);
-  Clipboard.setString(shareUrl);
+  Clipboard.setStringAsync(shareUrl);
   if (Platform.OS === 'android') {
     ToastAndroid.show('Room Link copied to clipboard! 📋', ToastAndroid.SHORT);
   } else {
@@ -39,7 +40,7 @@ export function copyRoomLinkToClipboard(roomCode: string): void {
  * Copies the raw room code to clipboard.
  */
 export function copyRoomCodeToClipboard(roomCode: string): void {
-  Clipboard.setString(roomCode);
+  Clipboard.setStringAsync(roomCode);
   if (Platform.OS === 'android') {
     ToastAndroid.show(`Room code ${roomCode} copied! 📋`, ToastAndroid.SHORT);
   } else {

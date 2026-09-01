@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, StatusBar, Alert, Clipboard, Platform, ToastAndroid } from 'react-native';
+import { StyleSheet, StatusBar, Alert, Platform, ToastAndroid } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaProvider, SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
 import { QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -479,9 +480,9 @@ function MainApp() {
 
   const handleCreateNewWhisperRoom = async () => {
     const newCode = generateNewWhisperCode();
-    const shareUrl = `https://vailchat.com/join?code=${newCode}`;
+    const shareUrl = `https://vilechat.app/join?code=${newCode}`;
 
-    Clipboard.setString(shareUrl);
+    Clipboard.setStringAsync(shareUrl);
     if (Platform.OS === 'android') {
       ToastAndroid.show('Room link copied to clipboard! 📋', ToastAndroid.SHORT);
     }
@@ -520,16 +521,10 @@ function MainApp() {
 
   const handleChangeAvatar = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Needed', 'We need photo library access to change your avatar.');
-        return;
-      }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.5,
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
         base64: true,
       });
       if (!result.canceled && result.assets && result.assets[0].base64) {
