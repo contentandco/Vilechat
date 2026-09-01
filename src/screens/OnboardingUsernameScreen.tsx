@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     width: '100%',
-    backgroundColor: Colors.primary,
+    backgroundColor: '#FFFFFF',
     paddingVertical: 18,
     borderRadius: 32,
     alignItems: 'center',
@@ -155,16 +155,16 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   continueBtnDisabled: {
-    backgroundColor: '#232D3F',
-    opacity: 0.6,
+    backgroundColor: '#354359',
+    opacity: 0.7,
   },
   continueBtnText: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: 'normal',
     letterSpacing: -0.2,
   },
   continueBtnTextDisabled: {
-    color: '#65758D',
+    color: '#8E9BAE',
   },
 });
