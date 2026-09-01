@@ -5,21 +5,21 @@ let Notifications: any = null;
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-try {
-  Notifications = require('expo-notifications');
-  if (Notifications?.setNotificationHandler) {
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
-    });
-  }
-} catch (e) {
-  console.warn('Notifications module setup warning:', e);
+if (!isExpoGo) {
+  try {
+    Notifications = require('expo-notifications');
+    if (Notifications?.setNotificationHandler) {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+    }
+  } catch (e) {}
 }
 
 /**
