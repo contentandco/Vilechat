@@ -378,7 +378,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         >
           <View style={styles.notifContainer}>
             {/* Notifications Header */}
-            <View style={styles.notifHeader}>
+            <View style={[styles.notifHeader, { paddingTop: Platform.OS === 'ios' ? Math.max(insets.top, 44) : Math.max(insets.top, 28) + 8 }]}>
               <TouchableOpacity 
                 style={styles.backBtn} 
                 onPress={() => setShowNotificationsModal(false)} 
