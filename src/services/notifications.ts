@@ -127,6 +127,8 @@ export async function scheduleDailyEngagementNotifications(): Promise<void> {
 
     // Schedule 1: Midday engagement (4 hours)
     const midItem = ENGAGEMENT_NOTIFICATIONS[Math.floor(Math.random() * ENGAGEMENT_NOTIFICATIONS.length)];
+    const timeIntervalType = Notifications?.SchedulableTriggerInputTypes?.TIME_INTERVAL || 'timeInterval';
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title: midItem.title,
@@ -135,7 +137,7 @@ export async function scheduleDailyEngagementNotifications(): Promise<void> {
         channelId: 'default',
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        type: timeIntervalType,
         seconds: 60 * 60 * 4, // 4 hours
         repeats: true,
       },
@@ -151,7 +153,7 @@ export async function scheduleDailyEngagementNotifications(): Promise<void> {
         channelId: 'default',
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        type: timeIntervalType,
         seconds: 60 * 60 * 8, // 8 hours
         repeats: true,
       },
