@@ -101,6 +101,26 @@ export async function sendEncryptedMessage({
   isSticker = false,
   isSystem = false,
 }: SendMessageParams) {
+  let resolvedRoomId = roomId;
+
+  // Auto-resolve roomId if missing or if it was given a roomCode instead of UUID
+  if ((!resolvedRoomId || resolvedRoomId.startsWith('VL-')) && roomCode) {
+    try {
+      const { data: roomData } = await supabase
+        .from('rooms')
+        .select('id')
+        .ilike('code', roomCode.trim().toLowerCase())
+        .single();
+      if (roomData?.id) {
+        resolvedRoomId = roomData.id;
+      }
+    } catch (e) {}
+  }
+
+  if (!resolvedRoomId) {
+    throw new Error('Room ID could not be resolved.');
+  }
+
   const encryptedContent = encryptMessage(rawContent, roomCode);
   const createdAt = new Date().toISOString();
 
@@ -109,7 +129,7 @@ export async function sendEncryptedMessage({
     .insert([
       {
         id,
-        room_id: roomId,
+        room_id: resolvedRoomId,
         sender_id: isSystem ? '__system__' : senderId,
         sender_name: isSystem ? 'System' : senderName,
         content_encrypted: encryptedContent,
