@@ -343,24 +343,7 @@ function MainApp() {
       return;
     }
 
-    // If joining whisper room code, ensure created in DB
-    if (cleanCode === whisperRoomCode.toLowerCase()) {
-      try {
-        await createRoomMutation({ code: whisperRoomCode });
-      } catch (e) {}
-    }
-
-    // Check if the room link is paused locally
-    const paused = await getPausedRoomCodes();
-    if (paused.includes(cleanCode)) {
-      Alert.alert(
-        'Link Paused ⏸️',
-        'The creator of this room has temporarily paused new messages. Please check back later!'
-      );
-      return;
-    }
-
-    // 1. Instant 0ms transition if room is already cached in inbox
+    // 1. INSTANT 0ms TRANSITION IF ROOM IS ALREADY IN INBOX / RECENT ROOMS
     const existingRoom = verifiedActiveRooms.find((r) => r.code.toLowerCase() === cleanCode);
     if (existingRoom) {
       enterRoom({
@@ -386,6 +369,21 @@ function MainApp() {
           });
         })
         .catch(() => {});
+      return;
+    }
+
+    // If joining whisper room code, ensure created in DB
+    if (cleanCode === whisperRoomCode.toLowerCase()) {
+      createRoomMutation({ code: whisperRoomCode }).catch(() => {});
+    }
+
+    // Check if the room link is paused locally
+    const paused = await getPausedRoomCodes();
+    if (paused.includes(cleanCode)) {
+      Alert.alert(
+        'Link Paused ⏸️',
+        'The creator of this room has temporarily paused new messages. Please check back later!'
+      );
       return;
     }
 

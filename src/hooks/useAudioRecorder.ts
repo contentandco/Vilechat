@@ -63,10 +63,28 @@ export function useAudioRecorder(onRecordingComplete: (base64AudioUrl: string) =
     }
   };
 
+  const cancelRecording = async () => {
+    if (!recorderRef.current) {
+      setIsRecording(false);
+      return;
+    }
+
+    setIsRecording(false);
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+
+    try {
+      await recorder.stop();
+    } catch (err) {
+      console.warn('Failed to cancel audio recording:', err);
+    }
+  };
+
   return {
     isRecording,
     isProcessing,
     startRecording,
     stopRecording,
+    cancelRecording,
   };
 }

@@ -266,7 +266,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   });
 
   // Record and send voice note
-  const { isRecording, isProcessing: recordingProcessing, startRecording, stopRecording } = useAudioRecorder(
+  const { isRecording, isProcessing: recordingProcessing, startRecording, stopRecording, cancelRecording } = useAudioRecorder(
     async (base64AudioData) => {
       const msgId = generateClientUUID();
       scrollToBottom();
@@ -318,14 +318,14 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   // Destroy room (Creator only)
   const handleDestroyRoom = async () => {
     if (!isCreator) return;
+    if (onDestroyRoom) {
+      onDestroyRoom();
+      return;
+    }
     try {
       setLoading(true);
       await deleteRoomPermanently(roomId, roomCode);
-      if (onDestroyRoom) {
-        onDestroyRoom();
-      } else {
-        onLeaveRoom();
-      }
+      onLeaveRoom();
     } catch (e) {
       Alert.alert('Error', 'Failed to delete room.');
     } finally {
@@ -335,11 +335,10 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
 
   return (
     <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
       style={styles.chatWrapper}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      {/* Header */}
+      {/* Top Header */}
       <ChatHeader
         roomName={roomName}
         timeRemaining={timeRemaining}
@@ -351,7 +350,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         }}
       />
 
-      {/* Messages Stream with 20-Message Auto-Pagination */}
+      {/* Messages Scroll Area */}
       <MessageList
         scrollViewRef={scrollViewRef}
         messages={messages}
@@ -374,6 +373,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         isRecording={isRecording}
         onStartRecording={startRecording}
         onStopRecording={stopRecording}
+        onCancelRecording={cancelRecording}
         loading={loading || pickingImage || recordingProcessing}
       />
 

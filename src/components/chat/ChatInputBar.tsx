@@ -28,6 +28,7 @@ interface ChatInputBarProps {
   isRecording: boolean;
   onStartRecording: () => void;
   onStopRecording: () => void;
+  onCancelRecording: () => void;
   loading: boolean;
 }
 
@@ -39,6 +40,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   isRecording,
   onStartRecording,
   onStopRecording,
+  onCancelRecording,
   loading,
 }) => {
   const insets = useSafeAreaInsets();
@@ -48,7 +50,6 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   const hasText = inputText.trim().length > 0;
 
   // Animations
-  const pulseAnim = useRef(new Animated.Value(1)).current;
   const dotAnim = useRef(new Animated.Value(1)).current;
   const barAnim1 = useRef(new Animated.Value(8)).current;
   const barAnim2 = useRef(new Animated.Value(16)).current;
@@ -73,10 +74,9 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     };
   }, []);
 
-  // Recording timer and live animations
+  // Recording timer and animations
   useEffect(() => {
     let timer: any = null;
-    let waveLoop: any = null;
     let dotLoop: any = null;
 
     if (isRecording) {
@@ -85,27 +85,11 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
 
-      // Mic pulse
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.25,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-
-      // Red dot blinking
+      // Blinking white dot
       dotLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(dotAnim, {
-            toValue: 0.2,
+            toValue: 0.25,
             duration: 400,
             useNativeDriver: true,
           }),
@@ -147,7 +131,6 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
       };
       animateBars();
     } else {
-      pulseAnim.setValue(1);
       dotAnim.setValue(1);
       setRecordingSeconds(0);
     }
@@ -155,7 +138,6 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     return () => {
       if (timer) clearInterval(timer);
       if (dotLoop) dotLoop.stop();
-      if (waveLoop) waveLoop.stop();
     };
   }, [isRecording]);
 
@@ -172,23 +154,32 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   return (
     <View style={[styles.instagramInputBar, { paddingBottom: bottomPadding }]}>
       {isRecording ? (
-        /* Active Recording WhatsApp / Instagram HUD */
+        /* Active Recording Clean White HUD */
         <View style={styles.recordingContainer}>
-          {/* Pulsing Red Dot & Timer */}
-          <View style={styles.recordingLeft}>
-            <Animated.View style={[styles.recordingRedDot, { opacity: dotAnim }]} />
-            <Text style={styles.recordingTimerText}>{formatTimer(recordingSeconds)}</Text>
-          </View>
+          {/* Delete / Cancel Button */}
+          <TouchableOpacity
+            style={styles.recordingDeleteBtn}
+            onPress={onCancelRecording}
+            activeOpacity={0.7}
+          >
+            <HugeiconsIcon icon={Delete02Icon} size={20} color="#FFFFFF" />
+          </TouchableOpacity>
 
-          {/* Dancing Waveform Bars */}
-          <View style={styles.recordingWaveform}>
-            <Animated.View style={[styles.recWaveBar, { height: barAnim1 }]} />
-            <Animated.View style={[styles.recWaveBar, { height: barAnim2 }]} />
-            <Animated.View style={[styles.recWaveBar, { height: barAnim3 }]} />
-            <Animated.View style={[styles.recWaveBar, { height: barAnim4 }]} />
-            <Animated.View style={[styles.recWaveBar, { height: barAnim5 }]} />
-            <Animated.View style={[styles.recWaveBar, { height: barAnim2 }]} />
-            <Animated.View style={[styles.recWaveBar, { height: barAnim4 }]} />
+          {/* Pulsing White Dot & Live Timer */}
+          <View style={styles.recordingCenterRow}>
+            <Animated.View style={[styles.recordingWhiteDot, { opacity: dotAnim }]} />
+            <Text style={styles.recordingTimerText}>{formatTimer(recordingSeconds)}</Text>
+
+            {/* Dancing Clean White Waveforms */}
+            <View style={styles.recordingWaveform}>
+              <Animated.View style={[styles.recWaveBar, { height: barAnim1 }]} />
+              <Animated.View style={[styles.recWaveBar, { height: barAnim2 }]} />
+              <Animated.View style={[styles.recWaveBar, { height: barAnim3 }]} />
+              <Animated.View style={[styles.recWaveBar, { height: barAnim4 }]} />
+              <Animated.View style={[styles.recWaveBar, { height: barAnim5 }]} />
+              <Animated.View style={[styles.recWaveBar, { height: barAnim2 }]} />
+              <Animated.View style={[styles.recWaveBar, { height: barAnim4 }]} />
+            </View>
           </View>
 
           {/* Stop / Send Button */}
@@ -197,9 +188,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             onPress={onStopRecording}
             activeOpacity={0.85}
           >
-            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-              <HugeiconsIcon icon={SentIcon} size={18} color="#FFFFFF" />
-            </Animated.View>
+            <HugeiconsIcon icon={SentIcon} size={18} color="#000000" />
           </TouchableOpacity>
         </View>
       ) : (
@@ -225,8 +214,8 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               placeholderTextColor={Colors.textMuted}
               value={inputText}
               onChangeText={setInputText}
-              selectionColor={Colors.primary}
-              cursorColor={Colors.primary}
+              selectionColor="#FFFFFF"
+              cursorColor="#FFFFFF"
               multiline
               maxLength={1000}
             />
@@ -332,7 +321,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 15,
   },
-  // Recording HUD Styles
+  // Clean White Recording HUD
   recordingContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -340,42 +329,51 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#1E2738',
     borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     height: 48,
   },
-  recordingLeft: {
+  recordingDeleteBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#2A374D',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordingCenterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
-  recordingRedDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FF2A6D',
+  recordingWhiteDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
   },
   recordingTimerText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   recordingWaveform: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     height: 28,
+    marginLeft: 6,
   },
   recWaveBar: {
     width: 3,
-    backgroundColor: '#FF2A6D',
+    backgroundColor: '#FFFFFF',
     borderRadius: 2,
   },
   recordingSendBtn: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#FF2A6D',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
