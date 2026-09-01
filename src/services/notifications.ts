@@ -1,22 +1,34 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 
-// Configure foreground notification presentation
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+let Notifications: any = null;
+
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+try {
+  Notifications = require('expo-notifications');
+  if (Notifications?.setNotificationHandler) {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  }
+} catch (e) {
+  console.warn('Notifications module setup warning:', e);
+}
 
 /**
- * Requests push / local notification permissions from the OS.
+ * Requests local notification permissions from the OS.
  */
 export async function requestNotificationPermission(): Promise<boolean> {
   try {
+    if (!Notifications) return false;
+
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
@@ -24,7 +36,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
       finalStatus = status;
     }
     
-    if (Platform.OS === 'android') {
+    if (Platform.OS === 'android' && Notifications.setNotificationChannelAsync) {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Vile Chat Notifications',
         importance: Notifications.AndroidImportance.MAX,
@@ -50,6 +62,8 @@ export async function triggerLocalMessageNotification(
   data?: Record<string, any>
 ): Promise<void> {
   try {
+    if (!Notifications?.scheduleNotificationAsync) return;
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
@@ -70,6 +84,8 @@ export async function triggerLocalMessageNotification(
  */
 export async function scheduleShareReminderNotification(): Promise<void> {
   try {
+    if (!Notifications?.scheduleNotificationAsync) return;
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Vile Chat 💬',
@@ -90,6 +106,8 @@ export async function scheduleShareReminderNotification(): Promise<void> {
  */
 export async function triggerTeamVileNotification(): Promise<void> {
   try {
+    if (!Notifications?.scheduleNotificationAsync) return;
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Team Vile Chat ⚡',
@@ -99,4 +117,26 @@ export async function triggerTeamVileNotification(): Promise<void> {
       trigger: null,
     });
   } catch (e) {}
+}
+
+/**
+ * Safely adds notification click listener.
+ */
+export function addSafeNotificationClickListener(callback: (roomCode: string) => void) {
+  try {
+    if (!Notifications?.addNotificationResponseReceivedListener) return () => {};
+
+    const subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
+      const data = response?.notification?.request?.content?.data;
+      if (data?.roomCode) {
+        callback(data.roomCode);
+      }
+    });
+
+    return () => {
+      subscription?.remove?.();
+    };
+  } catch (e) {
+    return () => {};
+  }
 }

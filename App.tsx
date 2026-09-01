@@ -47,7 +47,7 @@ import {
 } from './src/hooks/queries/useRoomQuery';
 import { messageKeys } from './src/hooks/queries/useMessagesQuery';
 import { useGlobalMessageNotifications } from './src/hooks/useGlobalMessageNotifications';
-import * as Notifications from 'expo-notifications';
+import { addSafeNotificationClickListener } from './src/services/notifications';
 
 // Screens and Modals
 import { SplashScreen } from './src/screens/SplashScreen';
@@ -319,15 +319,12 @@ function MainApp() {
 
   // Notification Response Listener (Opens room when tapping notification)
   useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as any;
-      if (data?.roomCode) {
-        handleJoinRoom(data.roomCode);
-      }
+    const removeListener = addSafeNotificationClickListener((roomCode) => {
+      handleJoinRoom(roomCode);
     });
 
     return () => {
-      subscription.remove();
+      removeListener();
     };
   }, [verifiedActiveRooms, whisperRoomCode]);
 
