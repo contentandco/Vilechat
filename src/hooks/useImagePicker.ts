@@ -6,13 +6,12 @@ export function useImagePicker(onImageSelected: (base64ImageData: string) => Pro
   const [pickingImage, setPickingImage] = useState<boolean>(false);
 
   const selectImage = async (useCamera: boolean = false) => {
-    const { status } = useCamera 
-      ? await ImagePicker.requestCameraPermissionsAsync() 
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', `We need access to your ${useCamera ? 'camera' : 'gallery'} to send images.`);
-      return;
+    if (useCamera) {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'We need access to your camera to take a photo.');
+        return;
+      }
     }
 
     try {

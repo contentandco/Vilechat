@@ -23,9 +23,6 @@
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "permissions": [
-        "RECORD_AUDIO",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ],
