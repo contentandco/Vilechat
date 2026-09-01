@@ -134,8 +134,7 @@ const styles = StyleSheet.create({
   joinModalInput: {
     backgroundColor: Colors.surfaceInput,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.borderInput,
+    borderWidth: 0,
     paddingHorizontal: 16,
     paddingVertical: 14,
     color: Colors.textPrimary,
