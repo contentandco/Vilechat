@@ -500,6 +500,9 @@ function MainApp() {
 
     setShowCreatedModal(true);
 
+    // Save to local and server recent rooms immediately
+    saveRecentRoomMutation({ code: newCode, name: newCode });
+
     try {
       await createRoomMutation({ code: newCode });
     } catch (e) {

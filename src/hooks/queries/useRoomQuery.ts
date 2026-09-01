@@ -4,9 +4,11 @@ import {
   createRoomInDB,
   renameRoomInDB,
   renameRoomByCodeInDB,
+  syncDeviceSession,
 } from '../../api/rooms';
 import { inboxKeys } from './useInboxQuery';
 import { ActiveRoomDetail } from '../../types';
+import { getLocalRecentRooms, saveLocalRecentRooms } from '../../services/storage';
 
 export const roomKeys = {
   all: ['rooms'] as const,
@@ -41,6 +43,18 @@ export function useCreateRoomMutation(deviceId: string, userId: string) {
     onSuccess: (data) => {
       // Seed detail cache
       queryClient.setQueryData(roomKeys.detail(data.code), data);
+
+      // Persist to local storage immediately so it stays on inbox reload
+      getLocalRecentRooms().then((localRooms) => {
+        const cleanCode = data.code.trim().toLowerCase();
+        const remaining = localRooms.filter((r) => r.code.trim().toLowerCase() !== cleanCode);
+        saveLocalRecentRooms([{ code: data.code, name: data.name || data.code, timestamp: Date.now() }, ...remaining]);
+      });
+
+      // Persist to device sessions in DB
+      if (deviceId) {
+        syncDeviceSession(deviceId, data.code, data.name).catch(() => {});
+      }
 
       // Optimistically add to inbox cache with strict case-insensitive deduplication
       queryClient.setQueryData<ActiveRoomDetail[]>(
