@@ -48,7 +48,11 @@ import {
 } from './src/hooks/queries/useRoomQuery';
 import { messageKeys } from './src/hooks/queries/useMessagesQuery';
 import { useGlobalMessageNotifications } from './src/hooks/useGlobalMessageNotifications';
-import { addSafeNotificationClickListener } from './src/services/notifications';
+import {
+  addSafeNotificationClickListener,
+  requestNotificationPermission,
+  scheduleDailyEngagementNotifications,
+} from './src/services/notifications';
 
 // Screens and Modals
 import { SplashScreen } from './src/screens/SplashScreen';
@@ -316,6 +320,15 @@ function MainApp() {
     });
 
     return () => subscription.remove();
+  }, []);
+
+  // Request Notification Permissions on startup & schedule engaging daily reminders
+  useEffect(() => {
+    requestNotificationPermission().then((granted) => {
+      if (granted) {
+        scheduleDailyEngagementNotifications();
+      }
+    });
   }, []);
 
   // Notification Response Listener (Opens room when tapping notification)

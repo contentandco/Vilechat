@@ -35,7 +35,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
-    
+
     if (Platform.OS === 'android' && Notifications.setNotificationChannelAsync) {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Vile Chat Notifications',
@@ -79,26 +79,72 @@ export async function triggerLocalMessageNotification(
   }
 }
 
-/**
- * Schedules a friendly reminder notification to share links and chat.
- */
-export async function scheduleShareReminderNotification(): Promise<void> {
-  try {
-    if (!Notifications?.scheduleNotificationAsync) return;
+const ENGAGEMENT_NOTIFICATIONS = [
+  {
+    title: 'Secret Confessions 🤫',
+    body: 'Someone might have dropped an anonymous message in your inbox. Tap to check!',
+  },
+  {
+    title: 'Spill the Tea ☕',
+    body: 'Share your whisper link on your story to see what your friends say anonymously!',
+  },
+  {
+    title: 'Daily Vibe Live 🔥',
+    body: 'What is your secret confession today? Share your card and start chatting privately.',
+  },
+  {
+    title: 'Vile Chat 💬',
+    body: 'Your friends are chatting! Drop your link to receive 100% encrypted messages.',
+  },
+];
 
+/**
+ * Schedules engaging recurring notifications throughout the day.
+ */
+export async function scheduleDailyEngagementNotifications(): Promise<void> {
+  try {
+    if (!Notifications?.scheduleNotificationAsync || !Notifications?.cancelAllScheduledNotificationsAsync) return;
+
+    // Cancel existing scheduled engagement notifications before rescheduling
+    await Notifications.cancelAllScheduledNotificationsAsync();
+
+    // Schedule 1: Midday engagement (4 hours)
+    const midItem = ENGAGEMENT_NOTIFICATIONS[Math.floor(Math.random() * ENGAGEMENT_NOTIFICATIONS.length)];
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Vile Chat 💬',
-        body: 'Share your whisper link to chat privately with friends!',
+        title: midItem.title,
+        body: midItem.body,
         sound: true,
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: 60 * 60 * 6, // 6 hours
+        seconds: 60 * 60 * 4, // 4 hours
+        repeats: true,
+      },
+    });
+
+    // Schedule 2: Evening engagement (8 hours)
+    const eveItem = ENGAGEMENT_NOTIFICATIONS[(Math.floor(Math.random() * ENGAGEMENT_NOTIFICATIONS.length) + 1) % ENGAGEMENT_NOTIFICATIONS.length];
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: eveItem.title,
+        body: eveItem.body,
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: 60 * 60 * 8, // 8 hours
         repeats: true,
       },
     });
   } catch (e) {}
+}
+
+/**
+ * Schedules a friendly reminder notification to share links and chat.
+ */
+export async function scheduleShareReminderNotification(): Promise<void> {
+  await scheduleDailyEngagementNotifications();
 }
 
 /**
