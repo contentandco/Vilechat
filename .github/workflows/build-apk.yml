@@ -38,7 +38,7 @@ jobs:
           sed -i 's/signingConfig signingConfigs.release/signingConfig signingConfigs.debug/g' android/app/build.gradle || true
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease -PnewArchEnabled=false --no-daemon
           cd app/build/outputs/apk/release
           mv *.apk VileChat.apk || true
 
