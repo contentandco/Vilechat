@@ -214,6 +214,8 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               placeholderTextColor={Colors.textMuted}
               value={inputText}
               onChangeText={setInputText}
+              onFocus={() => setIsKeyboardOpen(true)}
+              onBlur={() => setIsKeyboardOpen(false)}
               selectionColor="#FFFFFF"
               cursorColor="#FFFFFF"
               multiline

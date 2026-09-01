@@ -335,7 +335,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
 
   return (
     <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
       style={styles.chatWrapper}
     >
       {/* Top Header */}
