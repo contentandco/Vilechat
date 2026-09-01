@@ -78,10 +78,10 @@ export const RoomCreatedModal: React.FC<RoomCreatedModalProps> = ({
           {/* Option 1: Share Link */}
           <TouchableOpacity 
             style={styles.createdShareActionBtn}
-            onPress={async () => {
-              await onSaveName();
+            onPress={() => {
               onClose();
               onShareLink();
+              onSaveName().catch?.(() => {});
             }}
             activeOpacity={0.85}
           >
@@ -91,10 +91,10 @@ export const RoomCreatedModal: React.FC<RoomCreatedModalProps> = ({
           {/* Option 2: Go to Inbox */}
           <TouchableOpacity 
             style={styles.createdInboxActionBtn}
-            onPress={async () => {
-              await onSaveName();
+            onPress={() => {
               onClose();
               onGoToInbox();
+              onSaveName().catch?.(() => {});
             }}
             activeOpacity={0.85}
           >
@@ -104,9 +104,9 @@ export const RoomCreatedModal: React.FC<RoomCreatedModalProps> = ({
           {/* Option 3: Stay Here */}
           <TouchableOpacity 
             style={styles.createdDismissActionBtn}
-            onPress={async () => {
-              await onSaveName();
+            onPress={() => {
               onClose();
+              onSaveName().catch?.(() => {});
             }}
             activeOpacity={0.8}
           >
